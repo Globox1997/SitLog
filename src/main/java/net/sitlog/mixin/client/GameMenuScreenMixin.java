@@ -38,8 +38,6 @@ public abstract class GameMenuScreenMixin extends Screen {
 
     @Inject(method = "initWidgets", at = @At("TAIL"))
     private void initWidgetsMixin(CallbackInfo info) {
-        //  && ConfigInit.CONFIG.despawnTime > 0 TODO: TEST
-        // TODO: TEST NAME AFTER SERVER RESTART
         if (this.client != null && this.exitButton != null && this.client.player != null && !this.client.player.isCreativeLevelTwoOp() && (((PlayerEntityAccess) this.client.player).sitLog$getDespawnTimer() > 0 || ((PlayerEntityAccess) this.client.player).sitLog$getDespawnTimer() == -1)) {
             this.exitButton.active = false;
         }

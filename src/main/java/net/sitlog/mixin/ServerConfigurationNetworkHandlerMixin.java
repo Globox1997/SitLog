@@ -2,11 +2,9 @@ package net.sitlog.mixin;
 
 import com.mojang.authlib.GameProfile;
 import net.fabricmc.fabric.api.entity.FakePlayer;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.network.packet.c2s.config.ReadyC2SPacket;
-import net.minecraft.network.packet.s2c.play.PlayerRemoveS2CPacket;
 import net.minecraft.server.PlayerManager;
 import net.minecraft.server.network.ServerConfigurationNetworkHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -14,7 +12,6 @@ import net.minecraft.text.Text;
 import net.sitlog.SitlogMain;
 import net.sitlog.mixin.access.PlayerManagerAccessor;
 import net.sitlog.mixin.access.ServerPlayerInteractionManagerAccessor;
-import net.sitlog.network.packet.PlayerListPacket;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
@@ -24,7 +21,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
-import java.util.List;
 import java.util.UUID;
 
 @Mixin(ServerConfigurationNetworkHandler.class)
