@@ -62,8 +62,8 @@ public class PlayerManagerMixin {
                 SitlogMain.SITLOG_PLAYER_MAP.put(player.getUuid(), uuid);
             }
 
-            if (ConfigInit.CONFIG.despawnTime > 0) {
-                if (((PlayerEntityAccess) player).sitLog$getDespawnTimer() == 0) {
+            if (ConfigInit.CONFIG.despawnTime > 0 || player.isCreativeLevelTwoOp()) {
+                if (((PlayerEntityAccess) player).sitLog$getDespawnTimer() == 0 || player.isCreativeLevelTwoOp()) {
                     return;
                 }
             }
