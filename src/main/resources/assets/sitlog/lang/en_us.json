@@ -5,5 +5,8 @@
   "text.autoconfig.sitlog.option.despawnTimeX": "Despawn Time X",
   "text.autoconfig.sitlog.option.despawnTimeY": "Despawn Time Y",
 
-  "screen.sitlog.despawn_time": "%s"
+  "screen.sitlog.despawn_time": "%s",
+
+  "category.sitlog.keybind": "SitLog",
+  "key.sitlog.sit": "Sit"
 }
