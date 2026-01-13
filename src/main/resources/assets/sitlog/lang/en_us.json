@@ -1,0 +1,9 @@
+{
+  "text.autoconfig.sitlog.title": "SitLog Config",
+  "text.autoconfig.sitlog.option.keepAfterRestart": "Keep After Restart",
+  "text.autoconfig.sitlog.option.despawnTime": "Despawn Time",
+  "text.autoconfig.sitlog.option.despawnTimeX": "Despawn Time X",
+  "text.autoconfig.sitlog.option.despawnTimeY": "Despawn Time Y",
+
+  "screen.sitlog.despawn_time": "%s"
+}

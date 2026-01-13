@@ -1,0 +1,33 @@
+{
+  "required": true,
+  "package": "net.sitlog.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "FakePlayerMixin",
+    "LivingEntityMixin",
+    "PlayerEntityMixin",
+    "PlayerManagerMixin",
+    "ServerConfigurationNetworkHandlerMixin",
+    "ServerPlayerEntityMixin",
+    "access.EntityAccessor",
+    "access.MinecraftServerAccessor",
+    "access.PlayerManagerAccessor",
+    "access.PlayerSaveHandlerAccessor",
+    "access.ServerPlayerEntityAccessor",
+    "access.ServerPlayerInteractionManagerAccessor"
+  ],
+  "client": [
+    "client.AbstractClientPlayerEntityMixin",
+    "client.BipedEntityModelMixin",
+    "client.ClientPlayNetworkHandlerAccessor",
+    "client.ClientPlayNetworkHandlerMixin",
+    "client.GameMenuScreenMixin",
+    "client.PlayerListEntryMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}
