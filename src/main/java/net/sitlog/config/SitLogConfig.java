@@ -10,6 +10,7 @@ public class SitLogConfig implements ConfigData {
 
     @Comment("Keep sitting players after restart of server")
     public boolean keepAfterRestart = true;
+    public boolean sittingPlayerCanJump = false;
     @Comment("Player will get despawned after this time if >0. Time in ticks.")
     public int despawnTime = 0;
     @Comment("Despawn time screen position")

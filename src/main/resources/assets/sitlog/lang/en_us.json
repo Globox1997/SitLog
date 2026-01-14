@@ -4,6 +4,7 @@
   "text.autoconfig.sitlog.option.despawnTime": "Despawn Time",
   "text.autoconfig.sitlog.option.despawnTimeX": "Despawn Time X",
   "text.autoconfig.sitlog.option.despawnTimeY": "Despawn Time Y",
+  "text.autoconfig.sitlog.option.sittingPlayerCanJump": "Sitting Player Can Jump",
 
   "screen.sitlog.despawn_time": "%s",
 

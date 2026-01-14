@@ -69,6 +69,13 @@ public abstract class PlayerEntityMixin extends LivingEntity implements PlayerEn
         }
     }
 
+    @Inject(method = "jump", at = @At("HEAD"), cancellable = true)
+    private void jumpMixin(CallbackInfo info) {
+        if (((LivingEntityAccess) this).sitLog$getSitting() && !ConfigInit.CONFIG.sittingPlayerCanJump) {
+            info.cancel();
+        }
+    }
+
     @Override
     public void sitLog$setDespawnTimer(int despawnTimer) {
         this.despawnTimer = despawnTimer;
