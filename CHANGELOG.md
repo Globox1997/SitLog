@@ -1,6 +1,6 @@
 ### Added:
-- Added jumpable option
-### Fixed:
 - 
+### Fixed:
+- Fixed second render layer
 ### Changed:
 - 

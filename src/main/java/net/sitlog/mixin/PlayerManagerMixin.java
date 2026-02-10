@@ -17,6 +17,7 @@ import net.sitlog.access.FakePlayerAccess;
 import net.sitlog.access.PlayerEntityAccess;
 import net.sitlog.init.ConfigInit;
 import net.sitlog.mixin.access.EntityAccessor;
+import net.sitlog.mixin.access.PlayerEntityAccessor;
 import net.sitlog.mixin.access.PlayerManagerAccessor;
 import net.sitlog.mixin.access.ServerPlayerInteractionManagerAccessor;
 import net.sitlog.network.packet.PlayerListPacket;
@@ -69,6 +70,9 @@ public class PlayerManagerMixin {
             }
 
             FakePlayer fakePlayer = FakePlayer.get(player.getServerWorld(), new GameProfile(uuid, player.getName().getString()));
+
+            byte playerModelParts = player.getDataTracker().get(PlayerEntityAccessor.getPLAYER_MODEL_PARTS());
+            fakePlayer.getDataTracker().set(PlayerEntityAccessor.getPLAYER_MODEL_PARTS(), playerModelParts);
 
             ((EntityAccessor) fakePlayer).setRemovalReason(null);
             fakePlayer.getInventory().clone(player.getInventory());

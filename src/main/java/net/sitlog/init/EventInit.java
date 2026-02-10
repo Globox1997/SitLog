@@ -20,6 +20,7 @@ import net.sitlog.SitlogMain;
 import net.sitlog.access.LivingEntityAccess;
 import net.sitlog.access.PlayerEntityAccess;
 import net.sitlog.mixin.access.MinecraftServerAccessor;
+import net.sitlog.mixin.access.PlayerEntityAccessor;
 import net.sitlog.mixin.access.PlayerManagerAccessor;
 import net.sitlog.mixin.access.PlayerSaveHandlerAccessor;
 import net.sitlog.network.packet.DespawnTimerPacket;
@@ -75,6 +76,10 @@ public class EventInit {
                         ServerWorld serverWorld = server.getWorld(registryKey);
                         if (serverWorld != null) {
                             FakePlayer fakePlayer = FakePlayer.get(serverWorld, new GameProfile(entry.getValue(), optional.get().getString("SittingName")));
+
+                            byte playerModelParts = fakePlayer.getDataTracker().get(PlayerEntityAccessor.getPLAYER_MODEL_PARTS());
+                            fakePlayer.getDataTracker().set(PlayerEntityAccessor.getPLAYER_MODEL_PARTS(), playerModelParts);
+
                             fakePlayer.readNbt(optional.get());
 
                             fakePlayer.setServerWorld(serverWorld);
