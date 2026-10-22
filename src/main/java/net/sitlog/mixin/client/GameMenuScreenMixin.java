@@ -13,6 +13,7 @@ import net.sitlog.init.ConfigInit;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -31,16 +32,21 @@ public abstract class GameMenuScreenMixin extends Screen {
 
     @Inject(method = "tick", at = @At("TAIL"))
     private void tickMixin(CallbackInfo info) {
-        if (this.client != null && this.exitButton != null && !this.exitButton.active && this.client.player != null && ((PlayerEntityAccess) this.client.player).sitLog$getDespawnTimer() == 0) {
+        if (this.client != null && this.exitButton != null && !this.exitButton.active && this.client.player != null && (((PlayerEntityAccess) this.client.player).sitLog$getDespawnTimer() == 0 || !this.isInCombat())) {
             this.exitButton.active = true;
         }
     }
 
     @Inject(method = "initWidgets", at = @At("TAIL"))
     private void initWidgetsMixin(CallbackInfo info) {
-        if (this.client != null && this.exitButton != null && this.client.player != null && !this.client.isIntegratedServerRunning() && !this.client.player.isCreativeLevelTwoOp() && (((PlayerEntityAccess) this.client.player).sitLog$getDespawnTimer() > 0 || ((PlayerEntityAccess) this.client.player).sitLog$getDespawnTimer() == -1)) {
+        if (this.client != null && this.exitButton != null && this.client.player != null && !this.client.isIntegratedServerRunning() && !this.client.player.isCreativeLevelTwoOp() && this.isInCombat() && (((PlayerEntityAccess) this.client.player).sitLog$getDespawnTimer() > 0 || ((PlayerEntityAccess) this.client.player).sitLog$getDespawnTimer() == -1)) {
             this.exitButton.active = false;
         }
+    }
+
+    @Unique
+    private boolean isInCombat() {
+        return !Boolean.TRUE.equals(ConfigInit.SYNCED_ONLY_IN_COMBAT) || ((PlayerEntityAccess) this.client.player).sitLog$getCombatTimer() > 0;
     }
 
     @Inject(method = "render", at = @At("TAIL"))

@@ -2,6 +2,10 @@
   "text.autoconfig.sitlog.title": "SitLog Config",
   "text.autoconfig.sitlog.option.keepAfterRestart": "Keep After Restart",
   "text.autoconfig.sitlog.option.despawnTime": "Despawn Time",
+  "text.autoconfig.sitlog.option.bodyLifetime": "Body Lifetime",
+  "text.autoconfig.sitlog.option.onlyInCombat": "Only In Combat",
+  "text.autoconfig.sitlog.option.combatTagTime": "Combat Tag Time",
+  "text.autoconfig.sitlog.option.combatOnlyAgainstPlayers": "Combat Only Against Players",
   "text.autoconfig.sitlog.option.despawnTimeX": "Despawn Time X",
   "text.autoconfig.sitlog.option.despawnTimeY": "Despawn Time Y",
   "text.autoconfig.sitlog.option.sittingPlayerCanJump": "Sitting Player Can Jump",
@@ -10,6 +14,9 @@
 
   "text.sitlog.body_killed": "Your body was killed while you were offline: %s",
   "text.sitlog.body_killed_unknown": "Your body was killed while you were offline",
+  "text.sitlog.body_damaged": "Your body took %s hearts of damage while you were offline",
+  "text.sitlog.body_damaged_by": "Your body took %s hearts of damage from %s while you were offline",
+  "text.sitlog.body_despawned": "Your body despawned while you were offline",
 
   "category.sitlog.keybind": "SitLog",
   "key.sitlog.sit": "Sit"

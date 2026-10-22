@@ -36,7 +36,10 @@ public class PlayerManagerMixin {
         if (this.server.isHost(player.getGameProfile()) || player instanceof FakePlayer || !this.server.isRunning()) {
             return;
         }
-        if (player.isSpectator() || !player.isAlive() || player.isCreativeLevelTwoOp()) {
+        if (player.isSpectator() || player.isDead() || player.isCreativeLevelTwoOp()) {
+            return;
+        }
+        if (ConfigInit.CONFIG.onlyInCombat && !SitLogUtil.isInCombat(player)) {
             return;
         }
         if (ConfigInit.CONFIG.despawnTime > 0 && ((PlayerEntityAccess) player).sitLog$getDespawnTimer() == 0) {

@@ -1,11 +1,12 @@
 package net.sitlog.mixin.client;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.sugar.Local;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
-import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
 import net.minecraft.network.packet.s2c.play.PlayerRemoveS2CPacket;
 import net.sitlog.SitLogClient;
 import org.spongepowered.asm.mixin.Final;
@@ -14,7 +15,6 @@ import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Map;
@@ -30,8 +30,8 @@ public class ClientPlayNetworkHandlerMixin {
     private Map<UUID, PlayerListEntry> playerListEntries;
 
     // Both mixins might not be required anymore
-    @ModifyVariable(method = "createEntity", at = @At(value = "INVOKE_ASSIGN", target = "Lnet/minecraft/client/network/ClientPlayNetworkHandler;getPlayerListEntry(Ljava/util/UUID;)Lnet/minecraft/client/network/PlayerListEntry;"), index = 3)
-    private PlayerListEntry createEntityMixin(PlayerListEntry playerListEntry, EntitySpawnS2CPacket packet) {
+    @ModifyExpressionValue(method = "createEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/network/ClientPlayNetworkHandler;getPlayerListEntry(Ljava/util/UUID;)Lnet/minecraft/client/network/PlayerListEntry;"))
+    private PlayerListEntry createEntityMixin(PlayerListEntry playerListEntry, @Local(argsOnly = true) EntitySpawnS2CPacket packet) {
         if (playerListEntry == null) {
             if (SitLogClient.CLIENT_PLAYER_MAP.inverse().containsKey(packet.getUuid())) {
                 UUID playerUuid = SitLogClient.CLIENT_PLAYER_MAP.inverse().get(packet.getUuid());
@@ -43,16 +43,15 @@ public class ClientPlayNetworkHandlerMixin {
         return playerListEntry;
     }
 
-    @ModifyVariable(method = "onPlayerList", at = @At(value = "FIELD", target = "Lnet/minecraft/client/network/ClientPlayNetworkHandler;playerListEntries:Ljava/util/Map;"), index = 3)
-    private PlayerListS2CPacket.Entry createEntityMixin(PlayerListS2CPacket.Entry value) {
-        if (SitLogClient.CLIENT_PLAYER_MAP.inverse().containsKey(value.profileId())) {
-            UUID playerUuid = SitLogClient.CLIENT_PLAYER_MAP.inverse().get(value.profileId());
+    @ModifyExpressionValue(method = "onPlayerList", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/packet/s2c/play/PlayerListS2CPacket$Entry;profileId()Ljava/util/UUID;"))
+    private UUID onPlayerListMixin(UUID profileId) {
+        if (SitLogClient.CLIENT_PLAYER_MAP.inverse().containsKey(profileId)) {
+            UUID playerUuid = SitLogClient.CLIENT_PLAYER_MAP.inverse().get(profileId);
             if (playerListEntries.containsKey(playerUuid)) {
-                return new PlayerListS2CPacket.Entry(playerUuid, value.profile(), value.listed(), value.latency(), value.gameMode(), value.displayName(), value.chatSession());
+                return playerUuid;
             }
         }
-
-        return value;
+        return profileId;
     }
 
     @Inject(method = "onPlayerRemove", at = @At("TAIL"))

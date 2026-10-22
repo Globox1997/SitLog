@@ -11,6 +11,8 @@ public class ConfigInit {
 
     @Nullable
     public static Boolean SYNCED_SITTING_PLAYER_CAN_JUMP = null;
+    @Nullable
+    public static Boolean SYNCED_ONLY_IN_COMBAT = null;
 
     public static void init(){
         AutoConfig.register(SitLogConfig.class, JanksonConfigSerializer::new);

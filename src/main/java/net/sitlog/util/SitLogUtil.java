@@ -7,7 +7,10 @@ import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.advancement.PlayerAdvancementTracker;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtOps;
@@ -30,6 +33,7 @@ import net.sitlog.mixin.access.MinecraftServerAccessor;
 import net.sitlog.mixin.access.PlayerEntityAccessor;
 import net.sitlog.mixin.access.PlayerManagerAccessor;
 import net.sitlog.mixin.access.ServerPlayerInteractionManagerAccessor;
+import net.sitlog.network.packet.CombatTagPacket;
 import net.sitlog.network.packet.PlayerListPacket;
 import net.sitlog.network.packet.PlayerListSinglePacket;
 import net.sitlog.network.packet.SitPacket;
@@ -39,7 +43,9 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -71,6 +77,28 @@ public class SitLogUtil {
         }
     }
 
+    public static void onDamage(LivingEntity target, DamageSource source) {
+        if (!ConfigInit.CONFIG.onlyInCombat || !(source.getAttacker() instanceof LivingEntity attacker) || attacker == target) {
+            return;
+        }
+        if (ConfigInit.CONFIG.combatOnlyAgainstPlayers && !(target instanceof PlayerEntity && attacker instanceof PlayerEntity)) {
+            return;
+        }
+        tagCombat(target);
+        tagCombat(attacker);
+    }
+
+    public static boolean isInCombat(ServerPlayerEntity player) {
+        return ((PlayerEntityAccess) player).sitLog$getCombatTimer() > 0;
+    }
+
+    private static void tagCombat(LivingEntity entity) {
+        if (entity instanceof ServerPlayerEntity player && !(player instanceof FakePlayer) && ConfigInit.CONFIG.combatTagTime > 0) {
+            ((PlayerEntityAccess) player).sitLog$setCombatTimer(ConfigInit.CONFIG.combatTagTime);
+            ServerPlayNetworking.send(player, new CombatTagPacket(ConfigInit.CONFIG.combatTagTime));
+        }
+    }
+
     public static void createBody(MinecraftServer server, ServerPlayerEntity player) {
         UUID oldBodyUuid = SitlogMain.SITLOG_PLAYER_MAP.get(player.getUuid());
         if (oldBodyUuid != null) {
@@ -88,8 +116,8 @@ public class SitLogUtil {
         body.setServerWorld(serverWorld);
         body.refreshPositionAndAngles(player.getPos(), player.getYaw(), player.getPitch());
 
-        if (ConfigInit.CONFIG.despawnTime > 0) {
-            ((FakePlayerAccess) body).sitLog$setBodyDespawnTimer(ConfigInit.CONFIG.despawnTime);
+        if (ConfigInit.CONFIG.bodyLifetime > 0) {
+            ((FakePlayerAccess) body).sitLog$setBodyDespawnTimer(ConfigInit.CONFIG.bodyLifetime);
         }
 
         SitlogMain.SITLOG_PLAYER_MAP.put(player.getUuid(), body.getUuid());
@@ -149,19 +177,38 @@ public class SitLogUtil {
             if (body.isDead()) {
                 player.clearStatusEffects();
                 player.setFireTicks(0);
-
-                Text deathMessage = body instanceof FakePlayerAccess fakePlayerAccess ? fakePlayerAccess.sitLog$getDeathMessage() : null;
-                if (deathMessage != null) {
-                    player.sendMessage(Text.translatableWithFallback("text.sitlog.body_killed", "Your body was killed while you were offline: %s", deathMessage), false);
-                } else {
-                    player.sendMessage(Text.translatableWithFallback("text.sitlog.body_killed_unknown", "Your body was killed while you were offline"), false);
-                }
+            }
+            if (body instanceof FakePlayerAccess fakePlayerAccess) {
+                sendOfflineNotice(player, body.isDead(), fakePlayerAccess);
             }
 
             player.teleport(body.getServerWorld(), body.getX(), body.getY(), body.getZ(), body.getYaw(), body.getPitch());
         }
 
         removeBody(server, player.getUuid(), bodyUuid);
+    }
+
+    private static void sendOfflineNotice(ServerPlayerEntity player, boolean dead, FakePlayerAccess body) {
+        if (dead) {
+            Text deathMessage = body.sitLog$getDeathMessage();
+            if (deathMessage != null) {
+                player.sendMessage(Text.translatableWithFallback("text.sitlog.body_killed", "Your body was killed while you were offline: %s", deathMessage), false);
+            } else {
+                player.sendMessage(Text.translatableWithFallback("text.sitlog.body_killed_unknown", "Your body was killed while you were offline"), false);
+            }
+        } else if (body.sitLog$isDespawned()) {
+            player.sendMessage(Text.translatableWithFallback("text.sitlog.body_despawned", "Your body despawned while you were offline"), false);
+        }
+
+        if (body.sitLog$getDamageTaken() > 0.0F) {
+            String hearts = String.format(Locale.ROOT, "%.1f", body.sitLog$getDamageTaken() / 2.0F);
+            Collection<String> attackers = body.sitLog$getAttackers();
+            if (attackers.isEmpty()) {
+                player.sendMessage(Text.translatableWithFallback("text.sitlog.body_damaged", "Your body took %s hearts of damage while you were offline", hearts), false);
+            } else {
+                player.sendMessage(Text.translatableWithFallback("text.sitlog.body_damaged_by", "Your body took %s hearts of damage from %s while you were offline", hearts, String.join(", ", attackers)), false);
+            }
+        }
     }
 
     public static void unloadBody(ServerPlayerEntity body, Entity.RemovalReason reason) {

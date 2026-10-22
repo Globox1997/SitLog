@@ -103,11 +103,16 @@ public class SitLogClientPacket {
         });
         ClientPlayNetworking.registerGlobalReceiver(ConfigSyncPacket.PACKET_ID, (payload, context) -> {
             ConfigInit.SYNCED_SITTING_PLAYER_CAN_JUMP = payload.sittingPlayerCanJump();
+            ConfigInit.SYNCED_ONLY_IN_COMBAT = payload.onlyInCombat();
+        });
+        ClientPlayNetworking.registerGlobalReceiver(CombatTagPacket.PACKET_ID, (payload, context) -> {
+            ((PlayerEntityAccess) context.player()).sitLog$setCombatTimer(payload.combatTimer());
         });
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             SitLogClient.CLIENT_PLAYER_MAP.clear();
             ConfigInit.SYNCED_SITTING_PLAYER_CAN_JUMP = null;
+            ConfigInit.SYNCED_ONLY_IN_COMBAT = null;
         });
     }
 

@@ -28,6 +28,8 @@ public abstract class PlayerEntityMixin extends LivingEntity implements PlayerEn
 
     @Unique
     private int despawnTimer = 0;
+    @Unique
+    private int combatTimer = 0;
 
     @Unique
     private static final EntityDimensions SITTING_POSE = EntityDimensions.fixed(0.6F, 1.3F).withEyeHeight(1.12F);
@@ -40,6 +42,9 @@ public abstract class PlayerEntityMixin extends LivingEntity implements PlayerEn
     private void tickMixin(CallbackInfo info) {
         if (this.despawnTimer > 0 && ((LivingEntityAccess) this).sitLog$getSitting()) {
             this.despawnTimer--;
+        }
+        if (this.combatTimer > 0) {
+            this.combatTimer--;
         }
     }
 
@@ -84,5 +89,15 @@ public abstract class PlayerEntityMixin extends LivingEntity implements PlayerEn
     @Override
     public int sitLog$getDespawnTimer() {
         return this.despawnTimer;
+    }
+
+    @Override
+    public void sitLog$setCombatTimer(int combatTimer) {
+        this.combatTimer = combatTimer;
+    }
+
+    @Override
+    public int sitLog$getCombatTimer() {
+        return this.combatTimer;
     }
 }

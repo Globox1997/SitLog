@@ -7,6 +7,7 @@ import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.sitlog.SitlogMain;
+import net.sitlog.access.FakePlayerAccess;
 import net.sitlog.access.LivingEntityAccess;
 import net.sitlog.access.PlayerEntityAccess;
 import net.sitlog.network.packet.ConfigSyncPacket;
@@ -33,7 +34,7 @@ public class EventInit {
         });
 
         ServerPlayerEvents.JOIN.register((serverPlayerEntity) -> {
-            ServerPlayNetworking.send(serverPlayerEntity, new ConfigSyncPacket(ConfigInit.CONFIG.sittingPlayerCanJump));
+            ServerPlayNetworking.send(serverPlayerEntity, new ConfigSyncPacket(ConfigInit.CONFIG.sittingPlayerCanJump, ConfigInit.CONFIG.onlyInCombat));
             if (SitLogUtil.usesDespawnTimer(serverPlayerEntity)) {
                 ((PlayerEntityAccess) serverPlayerEntity).sitLog$setDespawnTimer(-1);
                 ServerPlayNetworking.send(serverPlayerEntity, new DespawnTimerPacket(-1));
@@ -51,13 +52,13 @@ public class EventInit {
         ServerLifecycleEvents.SERVER_STARTED.register((server) -> {
             SittingPlayerState.getSittingPlayerState(server);
 
-            boolean spawnBodies = ConfigInit.CONFIG.keepAfterRestart && ConfigInit.CONFIG.despawnTime <= 0;
+            boolean spawnBodies = ConfigInit.CONFIG.keepAfterRestart;
             for (Map.Entry<UUID, UUID> entry : new HashMap<>(SitlogMain.SITLOG_PLAYER_MAP).entrySet()) {
                 if (!SitLogUtil.hasBodyData(server, entry.getValue())) {
                     SitLogUtil.removeBody(server, entry.getKey(), entry.getValue());
                 } else if (spawnBodies) {
                     ServerPlayerEntity body = SitLogUtil.loadBody(server, entry.getValue(), "");
-                    if (body != null && body.isAlive()) {
+                    if (body != null && body.isAlive() && !((FakePlayerAccess) body).sitLog$isDespawned()) {
                         SitLogUtil.spawnBody(server, body);
                     }
                 }
