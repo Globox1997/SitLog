@@ -9,7 +9,7 @@ import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
-import net.sitlog.SitlogMain;
+import net.sitlog.SitLogClient;
 import net.sitlog.access.AbstractClientPlayerEntityAccess;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
@@ -33,8 +33,8 @@ public abstract class AbstractClientPlayerEntityMixin extends PlayerEntity imple
     @Inject(method = "getPlayerListEntry", at = @At("RETURN"))
     private void getPlayerListEntryMixin(CallbackInfoReturnable<PlayerListEntry> info) {
         if (this.playerListEntry == null) {
-            if (SitlogMain.SITLOG_PLAYER_MAP.inverse().containsKey(this.getUuid())) {
-                this.playerListEntry = MinecraftClient.getInstance().getNetworkHandler().getPlayerListEntry(SitlogMain.SITLOG_PLAYER_MAP.inverse().get(this.getUuid()));
+            if (SitLogClient.CLIENT_PLAYER_MAP.inverse().containsKey(this.getUuid())) {
+                this.playerListEntry = MinecraftClient.getInstance().getNetworkHandler().getPlayerListEntry(SitLogClient.CLIENT_PLAYER_MAP.inverse().get(this.getUuid()));
             }
         }
     }

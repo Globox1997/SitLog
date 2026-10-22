@@ -1,7 +1,9 @@
 package net.sitlog.mixin.access;
 
+import net.minecraft.advancement.PlayerAdvancementTracker;
 import net.minecraft.server.PlayerManager;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.stat.ServerStatHandler;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
@@ -17,5 +19,11 @@ public interface PlayerManagerAccessor {
 
     @Accessor("playerMap")
     Map<UUID, ServerPlayerEntity> getPlayerMap();
+
+    @Accessor("statisticsMap")
+    Map<UUID, ServerStatHandler> getStatisticsMap();
+
+    @Accessor("advancementTrackers")
+    Map<UUID, PlayerAdvancementTracker> getAdvancementTrackers();
 
 }

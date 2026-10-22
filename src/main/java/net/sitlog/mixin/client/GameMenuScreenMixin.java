@@ -38,7 +38,7 @@ public abstract class GameMenuScreenMixin extends Screen {
 
     @Inject(method = "initWidgets", at = @At("TAIL"))
     private void initWidgetsMixin(CallbackInfo info) {
-        if (this.client != null && this.exitButton != null && this.client.player != null && !this.client.player.isCreativeLevelTwoOp() && (((PlayerEntityAccess) this.client.player).sitLog$getDespawnTimer() > 0 || ((PlayerEntityAccess) this.client.player).sitLog$getDespawnTimer() == -1)) {
+        if (this.client != null && this.exitButton != null && this.client.player != null && !this.client.isIntegratedServerRunning() && !this.client.player.isCreativeLevelTwoOp() && (((PlayerEntityAccess) this.client.player).sitLog$getDespawnTimer() > 0 || ((PlayerEntityAccess) this.client.player).sitLog$getDespawnTimer() == -1)) {
             this.exitButton.active = false;
         }
     }

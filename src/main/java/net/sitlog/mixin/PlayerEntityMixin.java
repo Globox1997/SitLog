@@ -1,5 +1,7 @@
 package net.sitlog.mixin;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.EntityDimensions;
 import net.minecraft.entity.EntityPose;
@@ -13,14 +15,13 @@ import net.sitlog.access.LivingEntityAccess;
 import net.sitlog.access.PlayerEntityAccess;
 import net.sitlog.init.ConfigInit;
 import net.sitlog.network.packet.DespawnTimerPacket;
-import net.sitlog.network.packet.SitPacket;
+import net.sitlog.util.SitLogUtil;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 @Mixin(PlayerEntity.class)
 public abstract class PlayerEntityMixin extends LivingEntity implements PlayerEntityAccess {
@@ -37,7 +38,7 @@ public abstract class PlayerEntityMixin extends LivingEntity implements PlayerEn
 
     @Inject(method = "tick", at = @At("TAIL"))
     private void tickMixin(CallbackInfo info) {
-        if (this.despawnTimer > 0) {
+        if (this.despawnTimer > 0 && ((LivingEntityAccess) this).sitLog$getSitting()) {
             this.despawnTimer--;
         }
     }
@@ -49,30 +50,29 @@ public abstract class PlayerEntityMixin extends LivingEntity implements PlayerEn
         }
     }
 
-    @Inject(method = "updatePose", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/player/PlayerEntity;setPose(Lnet/minecraft/entity/EntityPose;)V"), locals = LocalCapture.CAPTURE_FAILSOFT)
-    private void updatePoseMixin(CallbackInfo info, EntityPose entityPose2) {
-        if (!this.getWorld().isClient() && !entityPose2.equals(EntityPose.STANDING)) {
-            ((LivingEntityAccess) this).sitLog$setSitting(false);
-            ServerPlayNetworking.send((ServerPlayerEntity) (Object) this, new SitPacket(this.getId(), false, ConfigInit.CONFIG.despawnTime > 0 ? -1 : 0));
-            this.calculateDimensions();
+    @WrapOperation(method = "updatePose", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/player/PlayerEntity;setPose(Lnet/minecraft/entity/EntityPose;)V"))
+    private void updatePoseMixin(PlayerEntity instance, EntityPose entityPose, Operation<Void> original) {
+        original.call(instance, entityPose);
+        if (!entityPose.equals(EntityPose.STANDING) && ((LivingEntityAccess) this).sitLog$getSitting() && (Object) this instanceof ServerPlayerEntity serverPlayerEntity) {
+            SitLogUtil.setSitting(serverPlayerEntity, false);
         }
     }
 
     @Inject(method = "damage", at = @At("RETURN"))
     private void damageMixin(DamageSource source, float amount, CallbackInfoReturnable<Boolean> info) {
-        if (!this.getWorld().isClient() && info.getReturnValue() && ((LivingEntityAccess) this).sitLog$getSitting() && ConfigInit.CONFIG.despawnTime > 0) {
+        if (info.getReturnValue() && ((LivingEntityAccess) this).sitLog$getSitting() && (Object) this instanceof ServerPlayerEntity serverPlayerEntity && SitLogUtil.usesDespawnTimer(serverPlayerEntity)) {
             this.despawnTimer = ConfigInit.CONFIG.despawnTime;
-            ServerPlayNetworking.send((ServerPlayerEntity) (Object) this, new DespawnTimerPacket(ConfigInit.CONFIG.despawnTime));
-//            for (ServerPlayerEntity serverPlayerEntity : ((ServerPlayerEntity) (Object) this).getServerWorld().getPlayers()) {
-//                ServerPlayNetworking.send(serverPlayerEntity, new SitPacket(this.getId(), true, ConfigInit.CONFIG.despawnTime));
-//            }
+            ServerPlayNetworking.send(serverPlayerEntity, new DespawnTimerPacket(ConfigInit.CONFIG.despawnTime));
         }
     }
 
     @Inject(method = "jump", at = @At("HEAD"), cancellable = true)
     private void jumpMixin(CallbackInfo info) {
-        if (((LivingEntityAccess) this).sitLog$getSitting() && !ConfigInit.CONFIG.sittingPlayerCanJump) {
-            info.cancel();
+        if (((LivingEntityAccess) this).sitLog$getSitting()) {
+            boolean canJump = this.getWorld().isClient() && ConfigInit.SYNCED_SITTING_PLAYER_CAN_JUMP != null ? ConfigInit.SYNCED_SITTING_PLAYER_CAN_JUMP : ConfigInit.CONFIG.sittingPlayerCanJump;
+            if (!canJump) {
+                info.cancel();
+            }
         }
     }
 

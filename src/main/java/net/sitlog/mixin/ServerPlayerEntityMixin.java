@@ -1,19 +1,15 @@
 package net.sitlog.mixin;
 
 import com.mojang.authlib.GameProfile;
-import net.fabricmc.fabric.api.entity.FakePlayer;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.sitlog.SitlogMain;
 import net.sitlog.access.LivingEntityAccess;
-import net.sitlog.init.ConfigInit;
-import net.sitlog.network.packet.SitPacket;
+import net.sitlog.util.SitLogUtil;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -46,12 +42,8 @@ public abstract class ServerPlayerEntityMixin extends PlayerEntity {
 
     @Inject(method = "startRiding", at = @At("RETURN"))
     private void startRidingMixin(Entity entity, boolean force, CallbackInfoReturnable<Boolean> info) {
-        if (info.getReturnValue()) {
-            ((LivingEntityAccess) this).sitLog$setSitting(false);
-            for (ServerPlayerEntity serverPlayerEntity : ((ServerPlayerEntity) (Object) this).getServerWorld().getPlayers()) {
-                ServerPlayNetworking.send(serverPlayerEntity, new SitPacket(this.getId(), false, ConfigInit.CONFIG.despawnTime > 0 ? -1 : 0));
-            }
-            this.calculateDimensions();
+        if (info.getReturnValue() && ((LivingEntityAccess) this).sitLog$getSitting()) {
+            SitLogUtil.setSitting((ServerPlayerEntity) (Object) this, false);
         }
     }
 }
