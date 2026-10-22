@@ -7,13 +7,10 @@
     "LivingEntityMixin",
     "PlayerEntityMixin",
     "PlayerManagerMixin",
-    "ServerConfigurationNetworkHandlerMixin",
     "ServerPlayerEntityMixin",
-    "access.EntityAccessor",
     "access.MinecraftServerAccessor",
     "access.PlayerEntityAccessor",
     "access.PlayerManagerAccessor",
-    "access.PlayerSaveHandlerAccessor",
     "access.ServerPlayerEntityAccessor",
     "access.ServerPlayerInteractionManagerAccessor"
   ],
