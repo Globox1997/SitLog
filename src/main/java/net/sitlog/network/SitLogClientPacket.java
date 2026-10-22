@@ -3,18 +3,21 @@ package net.sitlog.network;
 import com.mojang.authlib.GameProfile;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
-import net.sitlog.SitlogMain;
+import net.sitlog.SitLogClient;
 import net.sitlog.access.AbstractClientPlayerEntityAccess;
 import net.sitlog.access.LivingEntityAccess;
 import net.sitlog.access.PlayerEntityAccess;
+import net.sitlog.init.ConfigInit;
 import net.sitlog.mixin.client.ClientPlayNetworkHandlerAccessor;
 import net.sitlog.network.packet.*;
 
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -26,19 +29,19 @@ public class SitLogClientPacket {
             UUID profileId = payload.profileId();
             GameProfile profile = payload.profile();
             Text displayName = payload.displayName();
-            SitlogMain.SITLOG_PLAYER_MAP.clear();
-            SitlogMain.SITLOG_PLAYER_MAP.putAll(payload.sitlogMap());
+            for (Map.Entry<UUID, UUID> entry : payload.sitlogMap().entrySet()) {
+                SitLogClient.CLIENT_PLAYER_MAP.forcePut(entry.getKey(), entry.getValue());
+            }
 
             PlayerListEntry playerListEntry = new PlayerListEntry(profile, false);
             playerListEntry.setDisplayName(displayName);
             ((ClientPlayNetworkHandlerAccessor) context.client().getNetworkHandler()).getPlayerListEntries().put(profileId, playerListEntry);
-//            context.client().execute(() -> {
-//            });
         });
         ClientPlayNetworking.registerGlobalReceiver(PlayerListSinglePacket.PACKET_ID, (payload, context) -> {
             UUID profileId = payload.profileId();
             GameProfile profile = payload.profile();
             Text displayName = payload.displayName();
+            SitLogClient.CLIENT_PLAYER_MAP.forcePut(profile.getId(), profileId);
 
             PlayerListEntry playerListEntry = new PlayerListEntry(profile, false);
             playerListEntry.setDisplayName(displayName);
@@ -97,6 +100,14 @@ public class SitLogClientPacket {
             context.client().execute(() -> {
                 ((PlayerEntityAccess) context.player()).sitLog$setDespawnTimer(despawnTimer);
             });
+        });
+        ClientPlayNetworking.registerGlobalReceiver(ConfigSyncPacket.PACKET_ID, (payload, context) -> {
+            ConfigInit.SYNCED_SITTING_PLAYER_CAN_JUMP = payload.sittingPlayerCanJump();
+        });
+
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            SitLogClient.CLIENT_PLAYER_MAP.clear();
+            ConfigInit.SYNCED_SITTING_PLAYER_CAN_JUMP = null;
         });
     }
 
