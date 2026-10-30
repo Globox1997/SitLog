@@ -1,51 +1,76 @@
 package net.sitlog.state;
 
-import net.minecraft.core.HolderLookup;
+import com.mojang.serialization.Codec;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.level.Level;
+import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.level.saveddata.SavedData;
-import net.minecraft.world.level.storage.DimensionDataStorage;
+import net.minecraft.world.level.saveddata.SavedDataType;
+import net.minecraft.world.level.storage.LevelResource;
+import net.minecraft.world.level.storage.SavedDataStorage;
 import net.sitlog.SitlogMain;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 public class SittingPlayerState extends SavedData {
 
-    @Override
-    public CompoundTag save(CompoundTag nbt, HolderLookup.Provider registryLookup) {
+    public static final Codec<SittingPlayerState> CODEC = CompoundTag.CODEC.xmap(SittingPlayerState::fromNbt, SittingPlayerState::toNbt);
+
+    public static final SavedDataType<SittingPlayerState> TYPE = new SavedDataType<>(SitlogMain.identifierOf("sitlog"), SittingPlayerState::new, CODEC, DataFixTypes.SAVED_DATA_COMMAND_STORAGE);
+
+    public CompoundTag toNbt() {
+        CompoundTag nbt = new CompoundTag();
         int count = 0;
         nbt.putInt("SittingPlayerCount", SitlogMain.SITLOG_PLAYER_MAP.size());
         for (Map.Entry<UUID, UUID> entry : SitlogMain.SITLOG_PLAYER_MAP.entrySet()) {
-            nbt.putUUID("Player_" + count, entry.getKey());
-            nbt.putUUID("SittingPlayer_" + count, entry.getValue());
+            nbt.store("Player_" + count, UUIDUtil.CODEC, entry.getKey());
+            nbt.store("SittingPlayer_" + count, UUIDUtil.CODEC, entry.getValue());
             count++;
         }
         return nbt;
     }
 
-    public static SavedData.Factory<SittingPlayerState> getPersistentStateType() {
-        return new SavedData.Factory<>(SittingPlayerState::new, (nbt, registryLookup) -> fromNbt(nbt), null);
-    }
-
     public static SittingPlayerState fromNbt(CompoundTag nbt) {
         SittingPlayerState sittingPlayerState = new SittingPlayerState();
-        for (int i = 0; i < nbt.getInt("SittingPlayerCount"); i++) {
-            if(nbt.contains("Player_" + i) && nbt.contains("SittingPlayer_" + i)) {
-                UUID playerUuid = nbt.getUUID("Player_" + i);
-                UUID sittingPlayerUuid = nbt.getUUID("SittingPlayer_" + i);
-                SitlogMain.SITLOG_PLAYER_MAP.put(playerUuid, sittingPlayerUuid);
+        int count = nbt.getIntOr("SittingPlayerCount", 0);
+        for (int i = 0; i < count; i++) {
+            Optional<UUID> playerUuid = nbt.read("Player_" + i, UUIDUtil.CODEC);
+            Optional<UUID> sittingPlayerUuid = nbt.read("SittingPlayer_" + i, UUIDUtil.CODEC);
+            if (playerUuid.isPresent() && sittingPlayerUuid.isPresent()) {
+                SitlogMain.SITLOG_PLAYER_MAP.put(playerUuid.get(), sittingPlayerUuid.get());
             }
         }
         return sittingPlayerState;
     }
 
     public static SittingPlayerState getSittingPlayerState(MinecraftServer server) {
-        DimensionDataStorage persistentStateManager = server.getLevel(Level.OVERWORLD).getDataStorage();
-        SittingPlayerState state = persistentStateManager.computeIfAbsent(getPersistentStateType(), "sitlog");
+        SavedDataStorage dataStorage = server.getDataStorage();
+        SittingPlayerState state = dataStorage.get(TYPE);
+        if (state == null) {
+            state = new SittingPlayerState();
+            readLegacyData(server);
+            dataStorage.set(TYPE, state);
+        }
         state.setDirty();
         return state;
+    }
+
+    private static void readLegacyData(MinecraftServer server) {
+        Path legacyPath = server.getWorldPath(LevelResource.DATA).resolve("sitlog.dat");
+        if (Files.isRegularFile(legacyPath)) {
+            try {
+                NbtIo.readCompressed(legacyPath, NbtAccounter.unlimitedHeap()).getCompound("data").ifPresent(SittingPlayerState::fromNbt);
+            } catch (Exception exception) {
+                SitlogMain.LOGGER.warn("Failed to read legacy sitting player data {}", legacyPath, exception);
+            }
+        }
     }
 
 }

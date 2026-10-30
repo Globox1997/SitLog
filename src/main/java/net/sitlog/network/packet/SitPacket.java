@@ -3,11 +3,11 @@ package net.sitlog.network.packet;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public record SitPacket(int entityId, boolean sit, int despawnTime) implements CustomPacketPayload {
 
-    public static final CustomPacketPayload.Type<SitPacket> PACKET_ID = new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath("sitlog", "sit_packet"));
+    public static final CustomPacketPayload.Type<SitPacket> PACKET_ID = new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath("sitlog", "sit_packet"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, SitPacket> PACKET_CODEC = StreamCodec.ofMember((value, buf) -> {
         buf.writeInt(value.entityId());

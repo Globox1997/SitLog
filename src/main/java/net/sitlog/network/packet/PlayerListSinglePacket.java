@@ -11,23 +11,23 @@ import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public record PlayerListSinglePacket(UUID profileId, @Nullable GameProfile profile, @Nullable Component displayName) implements CustomPacketPayload {
 
-    public static final CustomPacketPayload.Type<PlayerListSinglePacket> PACKET_ID = new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath("sitlog", "player_list_single_packet"));
+    public static final CustomPacketPayload.Type<PlayerListSinglePacket> PACKET_ID = new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath("sitlog", "player_list_single_packet"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, PlayerListSinglePacket> PACKET_CODEC = StreamCodec.ofMember((value, buf) -> {
         buf.writeUUID(value.profileId());
-        buf.writeUUID(value.profile().getId());
-        buf.writeUtf(value.profile().getName(), 16);
-        ByteBufCodecs.GAME_PROFILE_PROPERTIES.encode(buf, value.profile().getProperties());
+        buf.writeUUID(value.profile().id());
+        buf.writeUtf(value.profile().name(), 16);
+        ByteBufCodecs.GAME_PROFILE_PROPERTIES.encode(buf, value.profile().properties());
         FriendlyByteBuf.writeNullable(buf, value.displayName(), ComponentSerialization.TRUSTED_STREAM_CODEC);
     }, buf -> {
         UUID uuid = buf.readUUID();
         UUID realPlayerUuid = buf.readUUID();
-        GameProfile gameProfile = new GameProfile(realPlayerUuid, buf.readUtf(16));
-        gameProfile.getProperties().putAll(ByteBufCodecs.GAME_PROFILE_PROPERTIES.decode(buf));
+        String name = buf.readUtf(16);
+        GameProfile gameProfile = new GameProfile(realPlayerUuid, name, ByteBufCodecs.GAME_PROFILE_PROPERTIES.decode(buf));
         Component displayName = FriendlyByteBuf.readNullable(buf, ComponentSerialization.TRUSTED_STREAM_CODEC);
 
         return new PlayerListSinglePacket(uuid, gameProfile, displayName);

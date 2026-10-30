@@ -1,33 +1,22 @@
 package net.sitlog.mixin;
 
 import com.mojang.authlib.GameProfile;
-import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
-import net.sitlog.SitlogMain;
 import net.sitlog.access.LivingEntityAccess;
 import net.sitlog.util.SitLogUtil;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ServerPlayer.class)
 public abstract class ServerPlayerEntityMixin extends Player {
 
-    public ServerPlayerEntityMixin(Level world, BlockPos pos, float yaw, GameProfile gameProfile) {
-        super(world, pos, yaw, gameProfile);
-    }
-
-    @Inject(method = "checkFallDamage", at = @At("HEAD"))
-    private void fallMixin(double heightDifference, boolean onGround, BlockState state, BlockPos landedPosition, CallbackInfo info) {
-        if (SitlogMain.SITLOG_PLAYER_MAP.inverse().containsKey(this.getUUID())) {
-            super.checkFallDamage(heightDifference, onGround, state, landedPosition);
-        }
+    public ServerPlayerEntityMixin(Level world, GameProfile gameProfile) {
+        super(world, gameProfile);
     }
 
     // TODO: MIGHT NEED TO GET REMOVED CAUSE OF USELESS
@@ -41,7 +30,7 @@ public abstract class ServerPlayerEntityMixin extends Player {
 //    }
 
     @Inject(method = "startRiding", at = @At("RETURN"))
-    private void startRidingMixin(Entity entity, boolean force, CallbackInfoReturnable<Boolean> info) {
+    private void startRidingMixin(Entity entity, boolean force, boolean sendEventAndTriggers, CallbackInfoReturnable<Boolean> info) {
         if (info.getReturnValue() && ((LivingEntityAccess) this).sitLog$getSitting()) {
             SitLogUtil.setSitting((ServerPlayer) (Object) this, false);
         }

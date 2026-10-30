@@ -3,7 +3,7 @@ package net.sitlog.mixin.client;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -49,10 +49,10 @@ public abstract class GameMenuScreenMixin extends Screen {
         return !Boolean.TRUE.equals(ConfigInit.SYNCED_ONLY_IN_COMBAT) || ((PlayerEntityAccess) this.minecraft.player).sitLog$getCombatTimer() > 0;
     }
 
-    @Inject(method = "render", at = @At("TAIL"))
-    private void renderMixin(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo info) {
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
+    private void renderMixin(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta, CallbackInfo info) {
         if (this.minecraft != null && this.disconnectButton != null && this.minecraft.player != null && ((PlayerEntityAccess) this.minecraft.player).sitLog$getDespawnTimer() > 0) {
-            context.drawString(this.font, Component.translatable("screen.sitlog.despawn_time", ((PlayerEntityAccess) this.minecraft.player).sitLog$getDespawnTimer() / 20), this.disconnectButton.getX() + 6 + ConfigInit.CONFIG.despawnTimeX, this.disconnectButton.getY() + 6 + ConfigInit.CONFIG.despawnTimeY, 16777215, true);
+            context.text(this.font, Component.translatable("screen.sitlog.despawn_time", ((PlayerEntityAccess) this.minecraft.player).sitLog$getDespawnTimer() / 20), this.disconnectButton.getX() + 6 + ConfigInit.CONFIG.despawnTimeX, this.disconnectButton.getY() + 6 + ConfigInit.CONFIG.despawnTimeY, 0xFFFFFFFF, true);
         }
     }
 

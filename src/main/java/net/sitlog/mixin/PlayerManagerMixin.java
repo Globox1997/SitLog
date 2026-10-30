@@ -5,6 +5,7 @@ import net.minecraft.network.Connection;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.server.players.NameAndId;
 import net.minecraft.server.players.PlayerList;
 import net.sitlog.SitlogMain;
 import net.sitlog.access.PlayerEntityAccess;
@@ -33,7 +34,7 @@ public class PlayerManagerMixin {
 
     @Inject(method = "remove", at = @At("TAIL"))
     private void removeMixin(ServerPlayer player, CallbackInfo info) {
-        if (this.server.isSingleplayerOwner(player.getGameProfile()) || player instanceof FakePlayer || !this.server.isRunning()) {
+        if (this.server.isSingleplayerOwner(new NameAndId(player.getGameProfile())) || player instanceof FakePlayer || !this.server.isRunning()) {
             return;
         }
         if (player.isSpectator() || player.isDeadOrDying() || player.canUseGameMasterBlocks()) {

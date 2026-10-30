@@ -1,10 +1,10 @@
 package net.sitlog.mixin.client;
 
-import net.minecraft.client.model.AgeableListModel;
+import net.fabricmc.fabric.api.client.rendering.v1.FabricRenderState;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.world.entity.LivingEntity;
-import net.sitlog.access.LivingEntityAccess;
+import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
+import net.sitlog.SitLogClient;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(HumanoidModel.class)
-public abstract class BipedEntityModelMixin <T extends LivingEntity> extends AgeableListModel<T> {
+public abstract class BipedEntityModelMixin {
 
     @Shadow @Mutable @Final
     public ModelPart head;
@@ -31,9 +31,9 @@ public abstract class BipedEntityModelMixin <T extends LivingEntity> extends Age
     @Shadow @Mutable @Final
     public ModelPart leftLeg;
 
-    @Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V",at = @At(value = "INVOKE", target = "Lnet/minecraft/client/model/geom/ModelPart;copyFrom(Lnet/minecraft/client/model/geom/ModelPart;)V"))
-    private void setAnglesMixin(T livingEntity, float f, float g, float h, float i, float j, CallbackInfo info){
-        if(!this.riding && ((LivingEntityAccess)livingEntity).sitLog$getSitting()){
+    @Inject(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/HumanoidRenderState;)V", at = @At("TAIL"))
+    private void setAnglesMixin(HumanoidRenderState state, CallbackInfo info){
+        if(!state.isPassenger && ((FabricRenderState) (Object) state).getDataOrDefault(SitLogClient.SITTING, false)){
             this.rightArm.xRot += (float) (-Math.PI / 5);
             this.leftArm.xRot += (float) (-Math.PI / 5);
             this.rightLeg.xRot = -1.5137167F;

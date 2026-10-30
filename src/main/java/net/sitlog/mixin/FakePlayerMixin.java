@@ -1,12 +1,13 @@
 package net.sitlog.mixin;
 
+import com.google.gson.JsonParser;
 import com.mojang.authlib.GameProfile;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.JsonOps;
 import net.fabricmc.fabric.api.entity.FakePlayer;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
+import net.minecraft.network.protocol.game.ServerboundPlayerLoadedPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerLevel;
@@ -14,9 +15,10 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.sitlog.access.FakePlayerAccess;
 import net.sitlog.mixin.access.PlayerEntityAccessor;
-import net.sitlog.mixin.access.ServerPlayerEntityAccessor;
 import net.sitlog.util.SitLogUtil;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
@@ -28,6 +30,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 @Mixin(FakePlayer.class)
@@ -50,9 +53,9 @@ public abstract class FakePlayerMixin extends ServerPlayer implements FakePlayer
     }
 
     @Inject(method = "isInvulnerableTo", at = @At("HEAD"), cancellable = true)
-    private void isInvulnerableToMixin(DamageSource damageSource, CallbackInfoReturnable<Boolean> info) {
+    private void isInvulnerableToMixin(ServerLevel level, DamageSource damageSource, CallbackInfoReturnable<Boolean> info) {
         if (SitLogUtil.isBody(this)) {
-            info.setReturnValue(super.isInvulnerableTo(damageSource));
+            info.setReturnValue(super.isInvulnerableTo(level, damageSource));
         }
     }
 
@@ -68,19 +71,19 @@ public abstract class FakePlayerMixin extends ServerPlayer implements FakePlayer
                 return;
             }
 
-            if (((ServerPlayerEntityAccessor) this).getJoinInvulnerabilityTicks() > 0) {
-                ((ServerPlayerEntityAccessor) this).setJoinInvulnerabilityTicks(0);
+            if (!this.connection.hasClientLoaded()) {
+                this.connection.handleAcceptPlayerLoad(new ServerboundPlayerLoadedPacket());
             }
 
-            if (this.invulnerableTime > 0) {
-                this.invulnerableTime--;
+            if (this.getInvulnerableTime() > 0) {
+                this.setInvulnerableTime(this.getInvulnerableTime() - 1);
             }
 
             if (!this.isRemoved()) {
                 super.aiStep();
             }
 
-            this.serverLevel().getChunkSource().move(this);
+            this.level().getChunkSource().move(this);
 
             if (!this.level().isClientSide() && this.despawnTimer > 0) {
                 this.despawnTimer--;
@@ -95,9 +98,9 @@ public abstract class FakePlayerMixin extends ServerPlayer implements FakePlayer
     }
 
     @Override
-    public boolean hurt(DamageSource source, float amount) {
+    public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
         float health = this.getHealth() + this.getAbsorptionAmount();
-        boolean damaged = super.hurt(source, amount);
+        boolean damaged = super.hurtServer(level, source, amount);
         if (damaged && SitLogUtil.isBody(this)) {
             this.damageTaken += Math.max(0.0F, health - this.getHealth() - this.getAbsorptionAmount());
             if (source.getEntity() instanceof Player attacker) {
@@ -115,48 +118,37 @@ public abstract class FakePlayerMixin extends ServerPlayer implements FakePlayer
         }
         super.die(damageSource);
         if (body) {
-            SitLogUtil.saveBody(this.server, this);
+            SitLogUtil.saveBody(this.level().getServer(), this);
         }
     }
 
     @Override
-    public void addAdditionalSaveData(CompoundTag nbt) {
-        super.addAdditionalSaveData(nbt);
-        nbt.putString("SittingName", this.getName().getString());
-        nbt.putByte("SittingModelParts", this.getEntityData().get(PlayerEntityAccessor.getPLAYER_MODEL_PARTS()));
+    protected void addAdditionalSaveData(ValueOutput output) {
+        super.addAdditionalSaveData(output);
+        output.putString("SittingName", this.getName().getString());
+        output.putByte("SittingModelParts", this.getEntityData().get(PlayerEntityAccessor.getPLAYER_MODEL_PARTS()));
         if (SitLogUtil.isBody(this)) {
-            nbt.putBoolean("SittingBody", true);
+            output.putBoolean("SittingBody", true);
         }
-        nbt.putInt("SittingDespawnTimer", this.despawnTimer);
-        nbt.putBoolean("SittingDespawned", this.despawned);
+        output.putInt("SittingDespawnTimer", this.despawnTimer);
+        output.putBoolean("SittingDespawned", this.despawned);
         if (this.deathMessage != null) {
-            nbt.putString("SittingDeathMessage", Component.Serializer.toJson(this.deathMessage, this.registryAccess()));
+            ComponentSerialization.CODEC.encodeStart(this.registryAccess().createSerializationContext(JsonOps.INSTANCE), this.deathMessage).result().ifPresent(json -> output.putString("SittingDeathMessage", json.toString()));
         }
-        nbt.putFloat("SittingDamageTaken", this.damageTaken);
-        ListTag attackerList = new ListTag();
-        for (String attacker : this.attackers) {
-            attackerList.add(StringTag.valueOf(attacker));
-        }
-        nbt.put("SittingAttackers", attackerList);
+        output.putFloat("SittingDamageTaken", this.damageTaken);
+        output.store("SittingAttackers", Codec.STRING.listOf(), List.copyOf(this.attackers));
     }
 
     @Override
-    public void readAdditionalSaveData(CompoundTag nbt) {
-        super.readAdditionalSaveData(nbt);
-        if (nbt.contains("SittingModelParts")) {
-            this.getEntityData().set(PlayerEntityAccessor.getPLAYER_MODEL_PARTS(), nbt.getByte("SittingModelParts"));
-        }
-        this.despawnTimer = nbt.getInt("SittingDespawnTimer");
-        this.despawned = nbt.getBoolean("SittingDespawned");
-        if (nbt.contains("SittingDeathMessage")) {
-            this.deathMessage = Component.Serializer.fromJson(nbt.getString("SittingDeathMessage"), this.registryAccess());
-        }
-        this.damageTaken = nbt.getFloat("SittingDamageTaken");
+    protected void readAdditionalSaveData(ValueInput input) {
+        super.readAdditionalSaveData(input);
+        input.read("SittingModelParts", Codec.BYTE).ifPresent(modelParts -> this.getEntityData().set(PlayerEntityAccessor.getPLAYER_MODEL_PARTS(), modelParts));
+        this.despawnTimer = input.getIntOr("SittingDespawnTimer", 0);
+        this.despawned = input.getBooleanOr("SittingDespawned", false);
+        input.getString("SittingDeathMessage").ifPresent(json -> this.deathMessage = ComponentSerialization.CODEC.parse(this.registryAccess().createSerializationContext(JsonOps.INSTANCE), JsonParser.parseString(json)).result().orElse(null));
+        this.damageTaken = input.getFloatOr("SittingDamageTaken", 0.0F);
         this.attackers.clear();
-        ListTag attackerList = nbt.getList("SittingAttackers", Tag.TAG_STRING);
-        for (int i = 0; i < attackerList.size(); i++) {
-            this.attackers.add(attackerList.getString(i));
-        }
+        input.read("SittingAttackers", Codec.STRING.listOf()).ifPresent(this.attackers::addAll);
     }
 
     @Override

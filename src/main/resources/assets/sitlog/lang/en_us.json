@@ -18,6 +18,6 @@
   "text.sitlog.body_damaged_by": "Your body took %s hearts of damage from %s while you were offline",
   "text.sitlog.body_despawned": "Your body despawned while you were offline",
 
-  "category.sitlog.keybind": "SitLog",
+  "key.category.sitlog.keybind": "SitLog",
   "key.sitlog.sit": "Sit"
 }

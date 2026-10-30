@@ -6,7 +6,6 @@ import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.sitlog.SitLogClient;
@@ -26,8 +25,8 @@ public abstract class AbstractClientPlayerEntityMixin extends Player implements 
     @Nullable
     private PlayerInfo playerInfo;
 
-    public AbstractClientPlayerEntityMixin(Level world, BlockPos pos, float yaw, GameProfile gameProfile) {
-        super(world, pos, yaw, gameProfile);
+    public AbstractClientPlayerEntityMixin(Level world, GameProfile gameProfile) {
+        super(world, gameProfile);
     }
 
     @Inject(method = "getPlayerInfo", at = @At("RETURN"))

@@ -41,7 +41,7 @@ public class SitLogClientPacket {
             UUID profileId = payload.profileId();
             GameProfile profile = payload.profile();
             Component displayName = payload.displayName();
-            SitLogClient.CLIENT_PLAYER_MAP.forcePut(profile.getId(), profileId);
+            SitLogClient.CLIENT_PLAYER_MAP.forcePut(profile.id(), profileId);
 
             PlayerInfo playerListEntry = new PlayerInfo(profile, false);
             playerListEntry.setTabListDisplayName(displayName);
@@ -49,7 +49,7 @@ public class SitLogClientPacket {
 
             context.client().execute(() -> {
                 CompletableFuture.supplyAsync(() -> {
-                    return context.client().getMinecraftSessionService().fetchProfile(profile.getId(), true);
+                    return context.client().services().sessionService().fetchProfile(profile.id(), true);
                 }).thenAcceptAsync(profileResult -> {
 
                     GameProfile finalProfile = (profileResult != null) ? profileResult.profile() : profile;

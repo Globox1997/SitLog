@@ -1,7 +1,11 @@
 package net.sitlog.mixin;
 
 import net.minecraft.core.Holder;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.player.Player;
+import net.sitlog.init.ConfigInit;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -30,7 +34,7 @@ public abstract class LivingEntityMixin extends Entity implements LivingEntityAc
     public abstract AttributeInstance getAttribute(Holder<Attribute> attribute);
 
     @Unique
-    private static final ResourceLocation SITTING_MODIFIER_ID = SitlogMain.identifierOf("sitting");
+    private static final Identifier SITTING_MODIFIER_ID = SitlogMain.identifierOf("sitting");
     @Unique
     private static final AttributeModifier SITTING_MODIFIER = new AttributeModifier(SITTING_MODIFIER_ID, -0.9D, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 
@@ -41,10 +45,20 @@ public abstract class LivingEntityMixin extends Entity implements LivingEntityAc
         super(type, world);
     }
 
-    @Inject(method = "hurt", at = @At("RETURN"))
-    private void damageMixin(DamageSource source, float amount, CallbackInfoReturnable<Boolean> info) {
-        if (info.getReturnValue() && !this.level().isClientSide()) {
+    @Inject(method = "hurtServer", at = @At("RETURN"))
+    private void damageMixin(ServerLevel level, DamageSource source, float amount, CallbackInfoReturnable<Boolean> info) {
+        if (info.getReturnValue()) {
             SitLogUtil.onDamage((LivingEntity) (Object) this, source);
+        }
+    }
+
+    @Inject(method = "jumpFromGround", at = @At("HEAD"), cancellable = true)
+    private void jumpMixin(CallbackInfo info) {
+        if ((Object) this instanceof Player && this.sitting) {
+            boolean canJump = this.level().isClientSide() && ConfigInit.SYNCED_SITTING_PLAYER_CAN_JUMP != null ? ConfigInit.SYNCED_SITTING_PLAYER_CAN_JUMP : ConfigInit.CONFIG.sittingPlayerCanJump;
+            if (!canJump) {
+                info.cancel();
+            }
         }
     }
 

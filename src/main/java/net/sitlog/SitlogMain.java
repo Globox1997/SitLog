@@ -3,7 +3,7 @@ package net.sitlog;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import net.fabricmc.api.ModInitializer;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.sitlog.init.ConfigInit;
 import net.sitlog.init.EventInit;
 import net.sitlog.network.SitLogServerPacket;
@@ -30,7 +30,7 @@ public class SitlogMain implements ModInitializer {
         EventInit.init();
     }
 
-    public static ResourceLocation identifierOf(String name) {
-        return ResourceLocation.fromNamespaceAndPath(MOD_ID, name);
+    public static Identifier identifierOf(String name) {
+        return Identifier.fromNamespaceAndPath(MOD_ID, name);
     }
 }

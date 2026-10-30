@@ -10,14 +10,14 @@ import net.sitlog.util.SitLogUtil;
 public class SitLogServerPacket {
 
     public static void init() {
-        PayloadTypeRegistry.playS2C().register(PlayerListPacket.PACKET_ID, PlayerListPacket.PACKET_CODEC);
-        PayloadTypeRegistry.playS2C().register(PlayerListSinglePacket.PACKET_ID, PlayerListSinglePacket.PACKET_CODEC);
-        PayloadTypeRegistry.playS2C().register(SitPacket.PACKET_ID, SitPacket.PACKET_CODEC);
-        PayloadTypeRegistry.playS2C().register(FakePlayerPacket.PACKET_ID, FakePlayerPacket.PACKET_CODEC);
-        PayloadTypeRegistry.playC2S().register(SitPacket.PACKET_ID, SitPacket.PACKET_CODEC);
-        PayloadTypeRegistry.playS2C().register(DespawnTimerPacket.PACKET_ID, DespawnTimerPacket.PACKET_CODEC);
-        PayloadTypeRegistry.playS2C().register(ConfigSyncPacket.PACKET_ID, ConfigSyncPacket.PACKET_CODEC);
-        PayloadTypeRegistry.playS2C().register(CombatTagPacket.PACKET_ID, CombatTagPacket.PACKET_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(PlayerListPacket.PACKET_ID, PlayerListPacket.PACKET_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(PlayerListSinglePacket.PACKET_ID, PlayerListSinglePacket.PACKET_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(SitPacket.PACKET_ID, SitPacket.PACKET_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(FakePlayerPacket.PACKET_ID, FakePlayerPacket.PACKET_CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(SitPacket.PACKET_ID, SitPacket.PACKET_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(DespawnTimerPacket.PACKET_ID, DespawnTimerPacket.PACKET_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(ConfigSyncPacket.PACKET_ID, ConfigSyncPacket.PACKET_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(CombatTagPacket.PACKET_ID, CombatTagPacket.PACKET_CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(SitPacket.PACKET_ID, (payload, context) -> {
             boolean sit = payload.sit();
