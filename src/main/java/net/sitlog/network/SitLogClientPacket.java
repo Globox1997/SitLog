@@ -5,10 +5,10 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.Text;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Player;
 import net.sitlog.SitLogClient;
 import net.sitlog.access.AbstractClientPlayerEntityAccess;
 import net.sitlog.access.LivingEntityAccess;
@@ -28,39 +28,39 @@ public class SitLogClientPacket {
         ClientPlayNetworking.registerGlobalReceiver(PlayerListPacket.PACKET_ID, (payload, context) -> {
             UUID profileId = payload.profileId();
             GameProfile profile = payload.profile();
-            Text displayName = payload.displayName();
+            Component displayName = payload.displayName();
             for (Map.Entry<UUID, UUID> entry : payload.sitlogMap().entrySet()) {
                 SitLogClient.CLIENT_PLAYER_MAP.forcePut(entry.getKey(), entry.getValue());
             }
 
-            PlayerListEntry playerListEntry = new PlayerListEntry(profile, false);
-            playerListEntry.setDisplayName(displayName);
-            ((ClientPlayNetworkHandlerAccessor) context.client().getNetworkHandler()).getPlayerListEntries().put(profileId, playerListEntry);
+            PlayerInfo playerListEntry = new PlayerInfo(profile, false);
+            playerListEntry.setTabListDisplayName(displayName);
+            ((ClientPlayNetworkHandlerAccessor) context.client().getConnection()).getPlayerListEntries().put(profileId, playerListEntry);
         });
         ClientPlayNetworking.registerGlobalReceiver(PlayerListSinglePacket.PACKET_ID, (payload, context) -> {
             UUID profileId = payload.profileId();
             GameProfile profile = payload.profile();
-            Text displayName = payload.displayName();
+            Component displayName = payload.displayName();
             SitLogClient.CLIENT_PLAYER_MAP.forcePut(profile.getId(), profileId);
 
-            PlayerListEntry playerListEntry = new PlayerListEntry(profile, false);
-            playerListEntry.setDisplayName(displayName);
-            ((ClientPlayNetworkHandlerAccessor) context.client().getNetworkHandler()).getPlayerListEntries().putIfAbsent(profileId, playerListEntry);
+            PlayerInfo playerListEntry = new PlayerInfo(profile, false);
+            playerListEntry.setTabListDisplayName(displayName);
+            ((ClientPlayNetworkHandlerAccessor) context.client().getConnection()).getPlayerListEntries().putIfAbsent(profileId, playerListEntry);
 
             context.client().execute(() -> {
                 CompletableFuture.supplyAsync(() -> {
-                    return context.client().getSessionService().fetchProfile(profile.getId(), true);
+                    return context.client().getMinecraftSessionService().fetchProfile(profile.getId(), true);
                 }).thenAcceptAsync(profileResult -> {
 
                     GameProfile finalProfile = (profileResult != null) ? profileResult.profile() : profile;
 
-                    PlayerListEntry newPlayerListEntry = new PlayerListEntry(finalProfile, false);
-                    newPlayerListEntry.setDisplayName(displayName);
+                    PlayerInfo newPlayerListEntry = new PlayerInfo(finalProfile, false);
+                    newPlayerListEntry.setTabListDisplayName(displayName);
 
-                    ((ClientPlayNetworkHandlerAccessor) context.client().getNetworkHandler()).getPlayerListEntries().put(profileId, newPlayerListEntry);
+                    ((ClientPlayNetworkHandlerAccessor) context.client().getConnection()).getPlayerListEntries().put(profileId, newPlayerListEntry);
 
-                    PlayerEntity playerEntity = context.player().getWorld().getPlayerByUuid(profileId);
-                    if (playerEntity != null && playerEntity instanceof AbstractClientPlayerEntity abstractClientPlayerEntity) {
+                    Player playerEntity = context.player().level().getPlayerByUUID(profileId);
+                    if (playerEntity != null && playerEntity instanceof AbstractClientPlayer abstractClientPlayerEntity) {
                         ((AbstractClientPlayerEntityAccess) abstractClientPlayerEntity).setPlayerListEntry(newPlayerListEntry);
                     }
 
@@ -74,10 +74,10 @@ public class SitLogClientPacket {
             boolean sit = payload.sit();
             int despawnTime = payload.despawnTime();
             context.client().execute(() -> {
-                if (context.player().getWorld().getEntityById(entityId) instanceof PlayerEntity playerEntity) {
+                if (context.player().level().getEntity(entityId) instanceof Player playerEntity) {
                     ((LivingEntityAccess) playerEntity).sitLog$setSitting(sit);
                     ((PlayerEntityAccess) playerEntity).sitLog$setDespawnTimer(despawnTime);
-                    playerEntity.calculateDimensions();
+                    playerEntity.refreshDimensions();
                 }
             });
         });
@@ -87,11 +87,11 @@ public class SitLogClientPacket {
             boolean sit = payload.sit();
             float yaw = payload.yaw();
             context.client().execute(() -> {
-                if (context.player().getWorld().getEntityById(entityId) instanceof PlayerEntity playerEntity) {
+                if (context.player().level().getEntity(entityId) instanceof Player playerEntity) {
                     ((LivingEntityAccess) playerEntity).sitLog$setSitting(sit);
-                    playerEntity.calculateDimensions();
-                    playerEntity.setYaw(yaw);
-                    playerEntity.setHeadYaw(yaw);
+                    playerEntity.refreshDimensions();
+                    playerEntity.setYRot(yaw);
+                    playerEntity.setYHeadRot(yaw);
                 }
             });
         });

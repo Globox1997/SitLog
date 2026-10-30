@@ -5,7 +5,7 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
 import net.sitlog.SitlogMain;
 import net.sitlog.access.FakePlayerAccess;
 import net.sitlog.access.LivingEntityAccess;
@@ -26,10 +26,10 @@ public class EventInit {
     public static void init() {
         EntityTrackingEvents.START_TRACKING.register((entity, serverPlayerEntity) -> {
             if (entity instanceof FakePlayer fakePlayer && SitLogUtil.isBody(fakePlayer)) {
-                ServerPlayNetworking.send(serverPlayerEntity, new FakePlayerPacket(fakePlayer.getId(), true, fakePlayer.getYaw()));
-            } else if (entity instanceof ServerPlayerEntity otherServerPlayerEntity && ((LivingEntityAccess) otherServerPlayerEntity).sitLog$getSitting()) {
+                ServerPlayNetworking.send(serverPlayerEntity, new FakePlayerPacket(fakePlayer.getId(), true, fakePlayer.getYRot()));
+            } else if (entity instanceof ServerPlayer otherServerPlayerEntity && ((LivingEntityAccess) otherServerPlayerEntity).sitLog$getSitting()) {
                 ServerPlayNetworking.send(serverPlayerEntity, new SitPacket(otherServerPlayerEntity.getId(), true, ConfigInit.CONFIG.despawnTime > 0 ? ConfigInit.CONFIG.despawnTime : 0));
-                otherServerPlayerEntity.calculateDimensions();
+                otherServerPlayerEntity.refreshDimensions();
             }
         });
 
@@ -57,7 +57,7 @@ public class EventInit {
                 if (!SitLogUtil.hasBodyData(server, entry.getValue())) {
                     SitLogUtil.removeBody(server, entry.getKey(), entry.getValue());
                 } else if (spawnBodies) {
-                    ServerPlayerEntity body = SitLogUtil.loadBody(server, entry.getValue(), "");
+                    ServerPlayer body = SitLogUtil.loadBody(server, entry.getValue(), "");
                     if (body != null && body.isAlive() && !((FakePlayerAccess) body).sitLog$isDespawned()) {
                         SitLogUtil.spawnBody(server, body);
                     }

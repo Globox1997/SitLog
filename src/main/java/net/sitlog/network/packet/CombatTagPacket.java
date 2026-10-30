@@ -1,22 +1,22 @@
 package net.sitlog.network.packet;
 
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 
-public record CombatTagPacket(int combatTimer) implements CustomPayload {
+public record CombatTagPacket(int combatTimer) implements CustomPacketPayload {
 
-    public static final CustomPayload.Id<CombatTagPacket> PACKET_ID = new CustomPayload.Id<>(Identifier.of("sitlog", "combat_tag_packet"));
+    public static final CustomPacketPayload.Type<CombatTagPacket> PACKET_ID = new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath("sitlog", "combat_tag_packet"));
 
-    public static final PacketCodec<RegistryByteBuf, CombatTagPacket> PACKET_CODEC = PacketCodec.of((value, buf) -> {
+    public static final StreamCodec<RegistryFriendlyByteBuf, CombatTagPacket> PACKET_CODEC = StreamCodec.ofMember((value, buf) -> {
         buf.writeInt(value.combatTimer());
     }, buf -> {
         return new CombatTagPacket(buf.readInt());
     });
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return PACKET_ID;
     }
 

@@ -1,12 +1,12 @@
 package net.sitlog.mixin;
 
 import com.mojang.authlib.GameProfile;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.sitlog.SitlogMain;
 import net.sitlog.access.LivingEntityAccess;
 import net.sitlog.util.SitLogUtil;
@@ -16,17 +16,17 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(ServerPlayerEntity.class)
-public abstract class ServerPlayerEntityMixin extends PlayerEntity {
+@Mixin(ServerPlayer.class)
+public abstract class ServerPlayerEntityMixin extends Player {
 
-    public ServerPlayerEntityMixin(World world, BlockPos pos, float yaw, GameProfile gameProfile) {
+    public ServerPlayerEntityMixin(Level world, BlockPos pos, float yaw, GameProfile gameProfile) {
         super(world, pos, yaw, gameProfile);
     }
 
-    @Inject(method = "fall", at = @At("HEAD"))
+    @Inject(method = "checkFallDamage", at = @At("HEAD"))
     private void fallMixin(double heightDifference, boolean onGround, BlockState state, BlockPos landedPosition, CallbackInfo info) {
-        if (SitlogMain.SITLOG_PLAYER_MAP.inverse().containsKey(this.getUuid())) {
-            super.fall(heightDifference, onGround, state, landedPosition);
+        if (SitlogMain.SITLOG_PLAYER_MAP.inverse().containsKey(this.getUUID())) {
+            super.checkFallDamage(heightDifference, onGround, state, landedPosition);
         }
     }
 
@@ -43,7 +43,7 @@ public abstract class ServerPlayerEntityMixin extends PlayerEntity {
     @Inject(method = "startRiding", at = @At("RETURN"))
     private void startRidingMixin(Entity entity, boolean force, CallbackInfoReturnable<Boolean> info) {
         if (info.getReturnValue() && ((LivingEntityAccess) this).sitLog$getSitting()) {
-            SitLogUtil.setSitting((ServerPlayerEntity) (Object) this, false);
+            SitLogUtil.setSitting((ServerPlayer) (Object) this, false);
         }
     }
 }

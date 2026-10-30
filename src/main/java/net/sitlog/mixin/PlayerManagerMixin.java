@@ -1,11 +1,11 @@
 package net.sitlog.mixin;
 
 import net.fabricmc.fabric.api.entity.FakePlayer;
-import net.minecraft.network.ClientConnection;
+import net.minecraft.network.Connection;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.PlayerManager;
-import net.minecraft.server.network.ConnectedClientData;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.server.players.PlayerList;
 import net.sitlog.SitlogMain;
 import net.sitlog.access.PlayerEntityAccess;
 import net.sitlog.init.ConfigInit;
@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.Map;
 import java.util.UUID;
 
-@Mixin(PlayerManager.class)
+@Mixin(PlayerList.class)
 public class PlayerManagerMixin {
 
     @Shadow
@@ -29,14 +29,14 @@ public class PlayerManagerMixin {
 
     @Shadow
     @Final
-    private Map<UUID, ServerPlayerEntity> playerMap;
+    private Map<UUID, ServerPlayer> playersByUUID;
 
     @Inject(method = "remove", at = @At("TAIL"))
-    private void removeMixin(ServerPlayerEntity player, CallbackInfo info) {
-        if (this.server.isHost(player.getGameProfile()) || player instanceof FakePlayer || !this.server.isRunning()) {
+    private void removeMixin(ServerPlayer player, CallbackInfo info) {
+        if (this.server.isSingleplayerOwner(player.getGameProfile()) || player instanceof FakePlayer || !this.server.isRunning()) {
             return;
         }
-        if (player.isSpectator() || player.isDead() || player.isCreativeLevelTwoOp()) {
+        if (player.isSpectator() || player.isDeadOrDying() || player.canUseGameMasterBlocks()) {
             return;
         }
         if (ConfigInit.CONFIG.onlyInCombat && !SitLogUtil.isInCombat(player)) {
@@ -48,16 +48,16 @@ public class PlayerManagerMixin {
         SitLogUtil.createBody(this.server, player);
     }
 
-    @Inject(method = "onPlayerConnect", at = @At("TAIL"))
-    private void onPlayerConnectMixin(ClientConnection connection, ServerPlayerEntity player, ConnectedClientData clientData, CallbackInfo info) {
+    @Inject(method = "placeNewPlayer", at = @At("TAIL"))
+    private void onPlayerConnectMixin(Connection connection, ServerPlayer player, CommonListenerCookie clientData, CallbackInfo info) {
         SitLogUtil.restoreFromBody(this.server, player);
         SitLogUtil.sendBodies(this.server, player);
     }
 
-    @Inject(method = "saveAllPlayerData", at = @At("TAIL"))
+    @Inject(method = "saveAll", at = @At("TAIL"))
     private void saveAllPlayerDataMixin(CallbackInfo info) {
         for (UUID bodyUuid : SitlogMain.SITLOG_PLAYER_MAP.values()) {
-            if (this.playerMap.get(bodyUuid) instanceof FakePlayer body) {
+            if (this.playersByUUID.get(bodyUuid) instanceof FakePlayer body) {
                 SitLogUtil.saveBody(this.server, body);
             }
         }

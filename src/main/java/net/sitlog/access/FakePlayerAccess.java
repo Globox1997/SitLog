@@ -1,9 +1,9 @@
 package net.sitlog.access;
 
-import net.minecraft.text.Text;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import net.minecraft.network.chat.Component;
 
 public interface FakePlayerAccess {
 
@@ -12,7 +12,7 @@ public interface FakePlayerAccess {
     boolean sitLog$isDespawned();
 
     @Nullable
-    Text sitLog$getDeathMessage();
+    Component sitLog$getDeathMessage();
 
     float sitLog$getDamageTaken();
 

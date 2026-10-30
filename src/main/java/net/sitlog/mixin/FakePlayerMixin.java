@@ -2,18 +2,18 @@ package net.sitlog.mixin;
 
 import com.mojang.authlib.GameProfile;
 import net.fabricmc.fabric.api.entity.FakePlayer;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.network.packet.c2s.common.SyncedClientOptions;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
+import net.minecraft.server.level.ClientInformation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import net.sitlog.access.FakePlayerAccess;
 import net.sitlog.mixin.access.PlayerEntityAccessor;
 import net.sitlog.mixin.access.ServerPlayerEntityAccessor;
@@ -31,7 +31,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 @Mixin(FakePlayer.class)
-public abstract class FakePlayerMixin extends ServerPlayerEntity implements FakePlayerAccess {
+public abstract class FakePlayerMixin extends ServerPlayer implements FakePlayerAccess {
 
     @Unique
     private int despawnTimer = 0;
@@ -39,13 +39,13 @@ public abstract class FakePlayerMixin extends ServerPlayerEntity implements Fake
     private boolean despawned = false;
     @Unique
     @Nullable
-    private Text deathMessage = null;
+    private Component deathMessage = null;
     @Unique
     private float damageTaken = 0.0F;
     @Unique
     private final Set<String> attackers = new LinkedHashSet<>();
 
-    public FakePlayerMixin(MinecraftServer server, ServerWorld world, GameProfile profile, SyncedClientOptions clientOptions) {
+    public FakePlayerMixin(MinecraftServer server, ServerLevel world, GameProfile profile, ClientInformation clientOptions) {
         super(server, world, profile, clientOptions);
     }
 
@@ -60,8 +60,8 @@ public abstract class FakePlayerMixin extends ServerPlayerEntity implements Fake
     private void tickMixin(CallbackInfo info) {
         if (SitLogUtil.isBody(this)) {
 
-            if (this.isDead()) {
-                this.updatePostDeath();
+            if (this.isDeadOrDying()) {
+                this.tickDeath();
                 if (this.isRemoved()) {
                     SitLogUtil.unloadBody(this, Entity.RemovalReason.KILLED);
                 }
@@ -72,17 +72,17 @@ public abstract class FakePlayerMixin extends ServerPlayerEntity implements Fake
                 ((ServerPlayerEntityAccessor) this).setJoinInvulnerabilityTicks(0);
             }
 
-            if (this.timeUntilRegen > 0) {
-                this.timeUntilRegen--;
+            if (this.invulnerableTime > 0) {
+                this.invulnerableTime--;
             }
 
             if (!this.isRemoved()) {
-                super.tickMovement();
+                super.aiStep();
             }
 
-            this.getServerWorld().getChunkManager().updatePosition(this);
+            this.serverLevel().getChunkSource().move(this);
 
-            if (!this.getWorld().isClient() && this.despawnTimer > 0) {
+            if (!this.level().isClientSide() && this.despawnTimer > 0) {
                 this.despawnTimer--;
                 if (this.despawnTimer == 0) {
                     this.despawned = true;
@@ -95,12 +95,12 @@ public abstract class FakePlayerMixin extends ServerPlayerEntity implements Fake
     }
 
     @Override
-    public boolean damage(DamageSource source, float amount) {
+    public boolean hurt(DamageSource source, float amount) {
         float health = this.getHealth() + this.getAbsorptionAmount();
-        boolean damaged = super.damage(source, amount);
+        boolean damaged = super.hurt(source, amount);
         if (damaged && SitLogUtil.isBody(this)) {
             this.damageTaken += Math.max(0.0F, health - this.getHealth() - this.getAbsorptionAmount());
-            if (source.getAttacker() instanceof PlayerEntity attacker) {
+            if (source.getEntity() instanceof Player attacker) {
                 this.attackers.add(attacker.getName().getString());
             }
         }
@@ -108,52 +108,52 @@ public abstract class FakePlayerMixin extends ServerPlayerEntity implements Fake
     }
 
     @Override
-    public void onDeath(DamageSource damageSource) {
+    public void die(DamageSource damageSource) {
         boolean body = SitLogUtil.isBody(this);
         if (body) {
-            this.deathMessage = this.getDamageTracker().getDeathMessage();
+            this.deathMessage = this.getCombatTracker().getDeathMessage();
         }
-        super.onDeath(damageSource);
+        super.die(damageSource);
         if (body) {
             SitLogUtil.saveBody(this.server, this);
         }
     }
 
     @Override
-    public void writeCustomDataToNbt(NbtCompound nbt) {
-        super.writeCustomDataToNbt(nbt);
+    public void addAdditionalSaveData(CompoundTag nbt) {
+        super.addAdditionalSaveData(nbt);
         nbt.putString("SittingName", this.getName().getString());
-        nbt.putByte("SittingModelParts", this.getDataTracker().get(PlayerEntityAccessor.getPLAYER_MODEL_PARTS()));
+        nbt.putByte("SittingModelParts", this.getEntityData().get(PlayerEntityAccessor.getPLAYER_MODEL_PARTS()));
         if (SitLogUtil.isBody(this)) {
             nbt.putBoolean("SittingBody", true);
         }
         nbt.putInt("SittingDespawnTimer", this.despawnTimer);
         nbt.putBoolean("SittingDespawned", this.despawned);
         if (this.deathMessage != null) {
-            nbt.putString("SittingDeathMessage", Text.Serialization.toJsonString(this.deathMessage, this.getRegistryManager()));
+            nbt.putString("SittingDeathMessage", Component.Serializer.toJson(this.deathMessage, this.registryAccess()));
         }
         nbt.putFloat("SittingDamageTaken", this.damageTaken);
-        NbtList attackerList = new NbtList();
+        ListTag attackerList = new ListTag();
         for (String attacker : this.attackers) {
-            attackerList.add(NbtString.of(attacker));
+            attackerList.add(StringTag.valueOf(attacker));
         }
         nbt.put("SittingAttackers", attackerList);
     }
 
     @Override
-    public void readCustomDataFromNbt(NbtCompound nbt) {
-        super.readCustomDataFromNbt(nbt);
+    public void readAdditionalSaveData(CompoundTag nbt) {
+        super.readAdditionalSaveData(nbt);
         if (nbt.contains("SittingModelParts")) {
-            this.getDataTracker().set(PlayerEntityAccessor.getPLAYER_MODEL_PARTS(), nbt.getByte("SittingModelParts"));
+            this.getEntityData().set(PlayerEntityAccessor.getPLAYER_MODEL_PARTS(), nbt.getByte("SittingModelParts"));
         }
         this.despawnTimer = nbt.getInt("SittingDespawnTimer");
         this.despawned = nbt.getBoolean("SittingDespawned");
         if (nbt.contains("SittingDeathMessage")) {
-            this.deathMessage = Text.Serialization.fromJson(nbt.getString("SittingDeathMessage"), this.getRegistryManager());
+            this.deathMessage = Component.Serializer.fromJson(nbt.getString("SittingDeathMessage"), this.registryAccess());
         }
         this.damageTaken = nbt.getFloat("SittingDamageTaken");
         this.attackers.clear();
-        NbtList attackerList = nbt.getList("SittingAttackers", NbtElement.STRING_TYPE);
+        ListTag attackerList = nbt.getList("SittingAttackers", Tag.TAG_STRING);
         for (int i = 0; i < attackerList.size(); i++) {
             this.attackers.add(attackerList.getString(i));
         }
@@ -171,7 +171,7 @@ public abstract class FakePlayerMixin extends ServerPlayerEntity implements Fake
 
     @Nullable
     @Override
-    public Text sitLog$getDeathMessage() {
+    public Component sitLog$getDeathMessage() {
         return this.deathMessage;
     }
 

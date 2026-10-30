@@ -2,8 +2,8 @@ package net.sitlog.network;
 
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Pose;
 import net.sitlog.network.packet.*;
 import net.sitlog.util.SitLogUtil;
 
@@ -22,11 +22,11 @@ public class SitLogServerPacket {
         ServerPlayNetworking.registerGlobalReceiver(SitPacket.PACKET_ID, (payload, context) -> {
             boolean sit = payload.sit();
             context.server().execute(() -> {
-                ServerPlayerEntity player = context.player();
-                if (sit && player.hasVehicle()) {
+                ServerPlayer player = context.player();
+                if (sit && player.isPassenger()) {
                     return;
                 }
-                if (!player.isSpectator() && player.isAlive() && player.getPose().equals(EntityPose.STANDING)) {
+                if (!player.isSpectator() && player.isAlive() && player.getPose().equals(Pose.STANDING)) {
                     SitLogUtil.setSitting(player, sit);
                 }
             });

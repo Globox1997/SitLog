@@ -5,25 +5,25 @@ import com.mojang.serialization.Dynamic;
 import net.fabricmc.fabric.api.entity.FakePlayer;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.advancement.PlayerAdvancementTracker;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.NbtSizeTracker;
-import net.minecraft.network.packet.s2c.play.PlayerRemoveS2CPacket;
-import net.minecraft.registry.RegistryKey;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.WorldSavePath;
-import net.minecraft.world.World;
-import net.minecraft.world.dimension.DimensionType;
+import net.minecraft.server.PlayerAdvancements;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.level.storage.LevelResource;
 import net.sitlog.SitlogMain;
 import net.sitlog.access.FakePlayerAccess;
 import net.sitlog.access.LivingEntityAccess;
@@ -53,16 +53,16 @@ import java.util.UUID;
 public class SitLogUtil {
 
     public static boolean isBody(Entity entity) {
-        return SitlogMain.SITLOG_PLAYER_MAP.inverse().containsKey(entity.getUuid());
+        return SitlogMain.SITLOG_PLAYER_MAP.inverse().containsKey(entity.getUUID());
     }
 
-    public static boolean usesDespawnTimer(ServerPlayerEntity player) {
-        return ConfigInit.CONFIG.despawnTime > 0 && !player.server.isHost(player.getGameProfile());
+    public static boolean usesDespawnTimer(ServerPlayer player) {
+        return ConfigInit.CONFIG.despawnTime > 0 && !player.server.isSingleplayerOwner(player.getGameProfile());
     }
 
-    public static void setSitting(ServerPlayerEntity player, boolean sit) {
+    public static void setSitting(ServerPlayer player, boolean sit) {
         ((LivingEntityAccess) player).sitLog$setSitting(sit);
-        player.calculateDimensions();
+        player.refreshDimensions();
 
         int despawnTimer = 0;
         if (usesDespawnTimer(player)) {
@@ -72,57 +72,57 @@ public class SitLogUtil {
 
         SitPacket sitPacket = new SitPacket(player.getId(), sit, despawnTimer);
         ServerPlayNetworking.send(player, sitPacket);
-        for (ServerPlayerEntity trackingPlayer : PlayerLookup.tracking(player)) {
+        for (ServerPlayer trackingPlayer : PlayerLookup.tracking(player)) {
             ServerPlayNetworking.send(trackingPlayer, sitPacket);
         }
     }
 
     public static void onDamage(LivingEntity target, DamageSource source) {
-        if (!ConfigInit.CONFIG.onlyInCombat || !(source.getAttacker() instanceof LivingEntity attacker) || attacker == target) {
+        if (!ConfigInit.CONFIG.onlyInCombat || !(source.getEntity() instanceof LivingEntity attacker) || attacker == target) {
             return;
         }
-        if (ConfigInit.CONFIG.combatOnlyAgainstPlayers && !(target instanceof PlayerEntity && attacker instanceof PlayerEntity)) {
+        if (ConfigInit.CONFIG.combatOnlyAgainstPlayers && !(target instanceof Player && attacker instanceof Player)) {
             return;
         }
         tagCombat(target);
         tagCombat(attacker);
     }
 
-    public static boolean isInCombat(ServerPlayerEntity player) {
+    public static boolean isInCombat(ServerPlayer player) {
         return ((PlayerEntityAccess) player).sitLog$getCombatTimer() > 0;
     }
 
     private static void tagCombat(LivingEntity entity) {
-        if (entity instanceof ServerPlayerEntity player && !(player instanceof FakePlayer) && ConfigInit.CONFIG.combatTagTime > 0) {
+        if (entity instanceof ServerPlayer player && !(player instanceof FakePlayer) && ConfigInit.CONFIG.combatTagTime > 0) {
             ((PlayerEntityAccess) player).sitLog$setCombatTimer(ConfigInit.CONFIG.combatTagTime);
             ServerPlayNetworking.send(player, new CombatTagPacket(ConfigInit.CONFIG.combatTagTime));
         }
     }
 
-    public static void createBody(MinecraftServer server, ServerPlayerEntity player) {
-        UUID oldBodyUuid = SitlogMain.SITLOG_PLAYER_MAP.get(player.getUuid());
+    public static void createBody(MinecraftServer server, ServerPlayer player) {
+        UUID oldBodyUuid = SitlogMain.SITLOG_PLAYER_MAP.get(player.getUUID());
         if (oldBodyUuid != null) {
-            removeBody(server, player.getUuid(), oldBodyUuid);
+            removeBody(server, player.getUUID(), oldBodyUuid);
         }
 
-        ServerWorld serverWorld = player.getServerWorld();
+        ServerLevel serverWorld = player.serverLevel();
         FakePlayer body = FakePlayer.get(serverWorld, new GameProfile(UUID.randomUUID(), player.getName().getString()));
         detachFromPlayerManager(server, body);
 
-        byte playerModelParts = player.getDataTracker().get(PlayerEntityAccessor.getPLAYER_MODEL_PARTS());
-        body.getDataTracker().set(PlayerEntityAccessor.getPLAYER_MODEL_PARTS(), playerModelParts);
+        byte playerModelParts = player.getEntityData().get(PlayerEntityAccessor.getPLAYER_MODEL_PARTS());
+        body.getEntityData().set(PlayerEntityAccessor.getPLAYER_MODEL_PARTS(), playerModelParts);
 
         copyPlayerState(player, body);
-        body.setServerWorld(serverWorld);
-        body.refreshPositionAndAngles(player.getPos(), player.getYaw(), player.getPitch());
+        body.setServerLevel(serverWorld);
+        body.moveTo(player.position(), player.getYRot(), player.getXRot());
 
         if (ConfigInit.CONFIG.bodyLifetime > 0) {
             ((FakePlayerAccess) body).sitLog$setBodyDespawnTimer(ConfigInit.CONFIG.bodyLifetime);
         }
 
-        SitlogMain.SITLOG_PLAYER_MAP.put(player.getUuid(), body.getUuid());
-        for (ServerPlayerEntity serverPlayerEntity : server.getPlayerManager().getPlayerList()) {
-            ServerPlayNetworking.send(serverPlayerEntity, new PlayerListPacket(body.getUuid(), player.getGameProfile(), player.getName(), Map.of(player.getUuid(), body.getUuid())));
+        SitlogMain.SITLOG_PLAYER_MAP.put(player.getUUID(), body.getUUID());
+        for (ServerPlayer serverPlayerEntity : server.getPlayerList().getPlayers()) {
+            ServerPlayNetworking.send(serverPlayerEntity, new PlayerListPacket(body.getUUID(), player.getGameProfile(), player.getName(), Map.of(player.getUUID(), body.getUUID())));
         }
 
         spawnBody(server, body);
@@ -130,24 +130,24 @@ public class SitLogUtil {
         SittingPlayerState.getSittingPlayerState(server);
     }
 
-    public static void spawnBody(MinecraftServer server, ServerPlayerEntity body) {
+    public static void spawnBody(MinecraftServer server, ServerPlayer body) {
         ((LivingEntityAccess) body).sitLog$setSitting(true);
-        body.calculateDimensions();
+        body.refreshDimensions();
 
-        ((PlayerManagerAccessor) server.getPlayerManager()).getPlayerMap().put(body.getUuid(), body);
-        body.getServerWorld().onPlayerConnected(body);
+        ((PlayerManagerAccessor) server.getPlayerList()).getPlayerMap().put(body.getUUID(), body);
+        body.serverLevel().addNewPlayer(body);
     }
 
     @Nullable
-    public static ServerPlayerEntity loadBody(MinecraftServer server, UUID bodyUuid, String fallbackName) {
-        Optional<NbtCompound> optional = loadBodyData(server, bodyUuid);
+    public static ServerPlayer loadBody(MinecraftServer server, UUID bodyUuid, String fallbackName) {
+        Optional<CompoundTag> optional = loadBodyData(server, bodyUuid);
         if (optional.isEmpty()) {
             return null;
         }
-        NbtCompound nbt = optional.get();
+        CompoundTag nbt = optional.get();
 
-        RegistryKey<World> registryKey = DimensionType.worldFromDimensionNbt(new Dynamic<>(NbtOps.INSTANCE, nbt.get("Dimension"))).resultOrPartial(SitlogMain.LOGGER::error).orElse(World.OVERWORLD);
-        ServerWorld serverWorld = server.getWorld(registryKey);
+        ResourceKey<Level> registryKey = DimensionType.parseLegacy(new Dynamic<>(NbtOps.INSTANCE, nbt.get("Dimension"))).resultOrPartial(SitlogMain.LOGGER::error).orElse(Level.OVERWORLD);
+        ServerLevel serverWorld = server.getLevel(registryKey);
         if (serverWorld == null) {
             return null;
         }
@@ -155,18 +155,18 @@ public class SitLogUtil {
         String name = nbt.contains("SittingName") ? nbt.getString("SittingName") : fallbackName;
         FakePlayer body = FakePlayer.get(serverWorld, new GameProfile(bodyUuid, name));
         detachFromPlayerManager(server, body);
-        body.readNbt(nbt);
-        body.setServerWorld(serverWorld);
+        body.load(nbt);
+        body.setServerLevel(serverWorld);
         return body;
     }
 
-    public static void restoreFromBody(MinecraftServer server, ServerPlayerEntity player) {
-        UUID bodyUuid = SitlogMain.SITLOG_PLAYER_MAP.get(player.getUuid());
+    public static void restoreFromBody(MinecraftServer server, ServerPlayer player) {
+        UUID bodyUuid = SitlogMain.SITLOG_PLAYER_MAP.get(player.getUUID());
         if (bodyUuid == null) {
             return;
         }
 
-        ServerPlayerEntity body = ((PlayerManagerAccessor) server.getPlayerManager()).getPlayerMap().get(bodyUuid);
+        ServerPlayer body = ((PlayerManagerAccessor) server.getPlayerList()).getPlayerMap().get(bodyUuid);
         if (body == null) {
             body = loadBody(server, bodyUuid, player.getName().getString());
         }
@@ -174,87 +174,87 @@ public class SitLogUtil {
         if (body != null) {
             copyPlayerState(body, player);
 
-            if (body.isDead()) {
-                player.clearStatusEffects();
-                player.setFireTicks(0);
+            if (body.isDeadOrDying()) {
+                player.removeAllEffects();
+                player.setRemainingFireTicks(0);
             }
             if (body instanceof FakePlayerAccess fakePlayerAccess) {
-                sendOfflineNotice(player, body.isDead(), fakePlayerAccess);
+                sendOfflineNotice(player, body.isDeadOrDying(), fakePlayerAccess);
             }
 
-            player.teleport(body.getServerWorld(), body.getX(), body.getY(), body.getZ(), body.getYaw(), body.getPitch());
+            player.teleportTo(body.serverLevel(), body.getX(), body.getY(), body.getZ(), body.getYRot(), body.getXRot());
         }
 
-        removeBody(server, player.getUuid(), bodyUuid);
+        removeBody(server, player.getUUID(), bodyUuid);
     }
 
-    private static void sendOfflineNotice(ServerPlayerEntity player, boolean dead, FakePlayerAccess body) {
+    private static void sendOfflineNotice(ServerPlayer player, boolean dead, FakePlayerAccess body) {
         if (dead) {
-            Text deathMessage = body.sitLog$getDeathMessage();
+            Component deathMessage = body.sitLog$getDeathMessage();
             if (deathMessage != null) {
-                player.sendMessage(Text.translatableWithFallback("text.sitlog.body_killed", "Your body was killed while you were offline: %s", deathMessage), false);
+                player.displayClientMessage(Component.translatableWithFallback("text.sitlog.body_killed", "Your body was killed while you were offline: %s", deathMessage), false);
             } else {
-                player.sendMessage(Text.translatableWithFallback("text.sitlog.body_killed_unknown", "Your body was killed while you were offline"), false);
+                player.displayClientMessage(Component.translatableWithFallback("text.sitlog.body_killed_unknown", "Your body was killed while you were offline"), false);
             }
         } else if (body.sitLog$isDespawned()) {
-            player.sendMessage(Text.translatableWithFallback("text.sitlog.body_despawned", "Your body despawned while you were offline"), false);
+            player.displayClientMessage(Component.translatableWithFallback("text.sitlog.body_despawned", "Your body despawned while you were offline"), false);
         }
 
         if (body.sitLog$getDamageTaken() > 0.0F) {
             String hearts = String.format(Locale.ROOT, "%.1f", body.sitLog$getDamageTaken() / 2.0F);
             Collection<String> attackers = body.sitLog$getAttackers();
             if (attackers.isEmpty()) {
-                player.sendMessage(Text.translatableWithFallback("text.sitlog.body_damaged", "Your body took %s hearts of damage while you were offline", hearts), false);
+                player.displayClientMessage(Component.translatableWithFallback("text.sitlog.body_damaged", "Your body took %s hearts of damage while you were offline", hearts), false);
             } else {
-                player.sendMessage(Text.translatableWithFallback("text.sitlog.body_damaged_by", "Your body took %s hearts of damage from %s while you were offline", hearts, String.join(", ", attackers)), false);
+                player.displayClientMessage(Component.translatableWithFallback("text.sitlog.body_damaged_by", "Your body took %s hearts of damage from %s while you were offline", hearts, String.join(", ", attackers)), false);
             }
         }
     }
 
-    public static void unloadBody(ServerPlayerEntity body, Entity.RemovalReason reason) {
+    public static void unloadBody(ServerPlayer body, Entity.RemovalReason reason) {
         MinecraftServer server = body.server;
         saveBody(server, body);
 
         if (!body.isRemoved()) {
-            body.getServerWorld().removePlayer(body, reason);
+            body.serverLevel().removePlayerImmediately(body, reason);
         }
-        ((PlayerManagerAccessor) server.getPlayerManager()).getPlayerMap().remove(body.getUuid(), body);
-        server.getPlayerManager().sendToAll(new PlayerRemoveS2CPacket(List.of(body.getUuid())));
+        ((PlayerManagerAccessor) server.getPlayerList()).getPlayerMap().remove(body.getUUID(), body);
+        server.getPlayerList().broadcastAll(new ClientboundPlayerInfoRemovePacket(List.of(body.getUUID())));
     }
 
     public static void removeBody(MinecraftServer server, UUID playerUuid, UUID bodyUuid) {
-        if (((PlayerManagerAccessor) server.getPlayerManager()).getPlayerMap().remove(bodyUuid) instanceof FakePlayer body && !body.isRemoved()) {
-            body.getServerWorld().removePlayer(body, Entity.RemovalReason.UNLOADED_WITH_PLAYER);
+        if (((PlayerManagerAccessor) server.getPlayerList()).getPlayerMap().remove(bodyUuid) instanceof FakePlayer body && !body.isRemoved()) {
+            body.serverLevel().removePlayerImmediately(body, Entity.RemovalReason.UNLOADED_WITH_PLAYER);
         }
 
         SitlogMain.SITLOG_PLAYER_MAP.remove(playerUuid);
         deleteBodyFiles(server, bodyUuid);
-        server.getPlayerManager().sendToAll(new PlayerRemoveS2CPacket(List.of(bodyUuid)));
+        server.getPlayerList().broadcastAll(new ClientboundPlayerInfoRemovePacket(List.of(bodyUuid)));
         SittingPlayerState.getSittingPlayerState(server);
     }
 
-    public static void sendBodies(MinecraftServer server, ServerPlayerEntity player) {
-        Map<UUID, ServerPlayerEntity> playerMap = ((PlayerManagerAccessor) server.getPlayerManager()).getPlayerMap();
+    public static void sendBodies(MinecraftServer server, ServerPlayer player) {
+        Map<UUID, ServerPlayer> playerMap = ((PlayerManagerAccessor) server.getPlayerList()).getPlayerMap();
         for (Map.Entry<UUID, UUID> entry : SitlogMain.SITLOG_PLAYER_MAP.entrySet()) {
             if (playerMap.get(entry.getValue()) instanceof FakePlayer body && body.isAlive()) {
-                ServerPlayNetworking.send(player, new PlayerListSinglePacket(body.getUuid(), new GameProfile(entry.getKey(), body.getName().getString()), body.getName()));
+                ServerPlayNetworking.send(player, new PlayerListSinglePacket(body.getUUID(), new GameProfile(entry.getKey(), body.getName().getString()), body.getName()));
             }
         }
     }
 
-    public static void saveBody(MinecraftServer server, ServerPlayerEntity body) {
-        ((MinecraftServerAccessor) server).getSaveHandler().savePlayerData(body);
+    public static void saveBody(MinecraftServer server, ServerPlayer body) {
+        ((MinecraftServerAccessor) server).getSaveHandler().save(body);
     }
 
     public static boolean hasBodyData(MinecraftServer server, UUID bodyUuid) {
         return loadBodyData(server, bodyUuid).isPresent();
     }
 
-    private static Optional<NbtCompound> loadBodyData(MinecraftServer server, UUID bodyUuid) {
-        Path path = server.getSavePath(WorldSavePath.PLAYERDATA).resolve(bodyUuid + ".dat");
+    private static Optional<CompoundTag> loadBodyData(MinecraftServer server, UUID bodyUuid) {
+        Path path = server.getWorldPath(LevelResource.PLAYER_DATA_DIR).resolve(bodyUuid + ".dat");
         if (Files.isRegularFile(path)) {
             try {
-                NbtCompound nbt = NbtIo.readCompressed(path, NbtSizeTracker.ofUnlimitedBytes());
+                CompoundTag nbt = NbtIo.readCompressed(path, NbtAccounter.unlimitedHeap());
                 if (nbt.getBoolean("SittingBody")) {
                     return Optional.of(nbt);
                 }
@@ -266,9 +266,9 @@ public class SitLogUtil {
     }
 
     private static void deleteBodyFiles(MinecraftServer server, UUID bodyUuid) {
-        Path playerDataDir = server.getSavePath(WorldSavePath.PLAYERDATA);
-        List<Path> paths = List.of(playerDataDir.resolve(bodyUuid + ".dat"), playerDataDir.resolve(bodyUuid + ".dat_old"), server.getSavePath(WorldSavePath.STATS).resolve(bodyUuid + ".json"),
-                server.getSavePath(WorldSavePath.ADVANCEMENTS).resolve(bodyUuid + ".json"));
+        Path playerDataDir = server.getWorldPath(LevelResource.PLAYER_DATA_DIR);
+        List<Path> paths = List.of(playerDataDir.resolve(bodyUuid + ".dat"), playerDataDir.resolve(bodyUuid + ".dat_old"), server.getWorldPath(LevelResource.PLAYER_STATS_DIR).resolve(bodyUuid + ".json"),
+                server.getWorldPath(LevelResource.PLAYER_ADVANCEMENTS_DIR).resolve(bodyUuid + ".json"));
         for (Path path : paths) {
             try {
                 Files.deleteIfExists(path);
@@ -278,33 +278,33 @@ public class SitLogUtil {
         }
     }
 
-    private static void detachFromPlayerManager(MinecraftServer server, ServerPlayerEntity body) {
-        PlayerManagerAccessor playerManagerAccessor = (PlayerManagerAccessor) server.getPlayerManager();
-        playerManagerAccessor.getStatisticsMap().remove(body.getUuid());
-        PlayerAdvancementTracker advancementTracker = playerManagerAccessor.getAdvancementTrackers().remove(body.getUuid());
+    private static void detachFromPlayerManager(MinecraftServer server, ServerPlayer body) {
+        PlayerManagerAccessor playerManagerAccessor = (PlayerManagerAccessor) server.getPlayerList();
+        playerManagerAccessor.getStatisticsMap().remove(body.getUUID());
+        PlayerAdvancements advancementTracker = playerManagerAccessor.getAdvancementTrackers().remove(body.getUUID());
         if (advancementTracker != null) {
-            advancementTracker.clearCriteria();
+            advancementTracker.stopListening();
         }
     }
 
-    private static void copyPlayerState(ServerPlayerEntity from, ServerPlayerEntity to) {
-        to.getInventory().clone(from.getInventory());
+    private static void copyPlayerState(ServerPlayer from, ServerPlayer to) {
+        to.getInventory().replaceWith(from.getInventory());
         to.setHealth(from.getHealth());
 
-        to.setAir(from.getAir());
-        to.setFireTicks(from.getFireTicks());
-        to.setGlowing(from.isGlowing());
+        to.setAirSupply(from.getAirSupply());
+        to.setRemainingFireTicks(from.getRemainingFireTicks());
+        to.setGlowingTag(from.isCurrentlyGlowing());
         to.setInvulnerable(from.isInvulnerable());
-        ((ServerPlayerInteractionManagerAccessor) to.interactionManager).callSetGameMode(from.interactionManager.getGameMode(), from.interactionManager.getPreviousGameMode());
+        ((ServerPlayerInteractionManagerAccessor) to.gameMode).callSetGameMode(from.gameMode.getGameModeForPlayer(), from.gameMode.getPreviousGameModeForPlayer());
 
-        to.clearStatusEffects();
-        for (StatusEffectInstance statusEffectInstance : from.getStatusEffects()) {
-            to.addStatusEffect(new StatusEffectInstance(statusEffectInstance));
+        to.removeAllEffects();
+        for (MobEffectInstance statusEffectInstance : from.getActiveEffects()) {
+            to.addEffect(new MobEffectInstance(statusEffectInstance));
         }
         to.experienceLevel = from.experienceLevel;
         to.totalExperience = from.totalExperience;
         to.experienceProgress = from.experienceProgress;
         to.setScore(from.getScore());
-        to.portalManager = from.portalManager;
+        to.portalProcess = from.portalProcess;
     }
 }

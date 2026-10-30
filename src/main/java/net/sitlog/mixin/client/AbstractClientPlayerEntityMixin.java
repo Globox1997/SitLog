@@ -3,12 +3,12 @@ package net.sitlog.mixin.client;
 import com.mojang.authlib.GameProfile;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import net.sitlog.SitLogClient;
 import net.sitlog.access.AbstractClientPlayerEntityAccess;
 import org.jetbrains.annotations.Nullable;
@@ -19,30 +19,30 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(AbstractClientPlayerEntity.class)
-public abstract class AbstractClientPlayerEntityMixin extends PlayerEntity implements AbstractClientPlayerEntityAccess {
+@Mixin(AbstractClientPlayer.class)
+public abstract class AbstractClientPlayerEntityMixin extends Player implements AbstractClientPlayerEntityAccess {
 
     @Shadow
     @Nullable
-    private PlayerListEntry playerListEntry;
+    private PlayerInfo playerInfo;
 
-    public AbstractClientPlayerEntityMixin(World world, BlockPos pos, float yaw, GameProfile gameProfile) {
+    public AbstractClientPlayerEntityMixin(Level world, BlockPos pos, float yaw, GameProfile gameProfile) {
         super(world, pos, yaw, gameProfile);
     }
 
-    @Inject(method = "getPlayerListEntry", at = @At("RETURN"))
-    private void getPlayerListEntryMixin(CallbackInfoReturnable<PlayerListEntry> info) {
-        if (this.playerListEntry == null) {
-            if (SitLogClient.CLIENT_PLAYER_MAP.inverse().containsKey(this.getUuid())) {
-                this.playerListEntry = MinecraftClient.getInstance().getNetworkHandler().getPlayerListEntry(SitLogClient.CLIENT_PLAYER_MAP.inverse().get(this.getUuid()));
+    @Inject(method = "getPlayerInfo", at = @At("RETURN"))
+    private void getPlayerListEntryMixin(CallbackInfoReturnable<PlayerInfo> info) {
+        if (this.playerInfo == null) {
+            if (SitLogClient.CLIENT_PLAYER_MAP.inverse().containsKey(this.getUUID())) {
+                this.playerInfo = Minecraft.getInstance().getConnection().getPlayerInfo(SitLogClient.CLIENT_PLAYER_MAP.inverse().get(this.getUUID()));
             }
         }
     }
 
     @Override
-    public void setPlayerListEntry(@Nullable PlayerListEntry playerListEntry) {
-        if (playerListEntry != null) {
-            this.playerListEntry = playerListEntry;
+    public void setPlayerListEntry(@Nullable PlayerInfo playerInfo) {
+        if (playerInfo != null) {
+            this.playerInfo = playerInfo;
         }
     }
 }

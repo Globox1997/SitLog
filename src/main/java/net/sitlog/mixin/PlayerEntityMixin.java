@@ -3,14 +3,14 @@ package net.sitlog.mixin;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.entity.EntityDimensions;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityDimensions;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import net.sitlog.access.LivingEntityAccess;
 import net.sitlog.access.PlayerEntityAccess;
 import net.sitlog.init.ConfigInit;
@@ -23,7 +23,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(PlayerEntity.class)
+@Mixin(Player.class)
 public abstract class PlayerEntityMixin extends LivingEntity implements PlayerEntityAccess {
 
     @Unique
@@ -34,7 +34,7 @@ public abstract class PlayerEntityMixin extends LivingEntity implements PlayerEn
     @Unique
     private static final EntityDimensions SITTING_POSE = EntityDimensions.fixed(0.6F, 1.3F).withEyeHeight(1.12F);
 
-    public PlayerEntityMixin(EntityType<? extends LivingEntity> entityType, World world) {
+    public PlayerEntityMixin(EntityType<? extends LivingEntity> entityType, Level world) {
         super(entityType, world);
     }
 
@@ -48,33 +48,33 @@ public abstract class PlayerEntityMixin extends LivingEntity implements PlayerEn
         }
     }
 
-    @Inject(method = "getBaseDimensions", at = @At("HEAD"), cancellable = true)
-    private void getBaseDimensionsMixin(EntityPose pose, CallbackInfoReturnable<EntityDimensions> info) {
+    @Inject(method = "getDefaultDimensions", at = @At("HEAD"), cancellable = true)
+    private void getBaseDimensionsMixin(Pose pose, CallbackInfoReturnable<EntityDimensions> info) {
         if (((LivingEntityAccess) this).sitLog$getSitting()) {
             info.setReturnValue(SITTING_POSE);
         }
     }
 
-    @WrapOperation(method = "updatePose", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/player/PlayerEntity;setPose(Lnet/minecraft/entity/EntityPose;)V"))
-    private void updatePoseMixin(PlayerEntity instance, EntityPose entityPose, Operation<Void> original) {
+    @WrapOperation(method = "updatePlayerPose", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;setPose(Lnet/minecraft/world/entity/Pose;)V"))
+    private void updatePoseMixin(Player instance, Pose entityPose, Operation<Void> original) {
         original.call(instance, entityPose);
-        if (!entityPose.equals(EntityPose.STANDING) && ((LivingEntityAccess) this).sitLog$getSitting() && (Object) this instanceof ServerPlayerEntity serverPlayerEntity) {
+        if (!entityPose.equals(Pose.STANDING) && ((LivingEntityAccess) this).sitLog$getSitting() && (Object) this instanceof ServerPlayer serverPlayerEntity) {
             SitLogUtil.setSitting(serverPlayerEntity, false);
         }
     }
 
-    @Inject(method = "damage", at = @At("RETURN"))
+    @Inject(method = "hurt", at = @At("RETURN"))
     private void damageMixin(DamageSource source, float amount, CallbackInfoReturnable<Boolean> info) {
-        if (info.getReturnValue() && ((LivingEntityAccess) this).sitLog$getSitting() && (Object) this instanceof ServerPlayerEntity serverPlayerEntity && SitLogUtil.usesDespawnTimer(serverPlayerEntity)) {
+        if (info.getReturnValue() && ((LivingEntityAccess) this).sitLog$getSitting() && (Object) this instanceof ServerPlayer serverPlayerEntity && SitLogUtil.usesDespawnTimer(serverPlayerEntity)) {
             this.despawnTimer = ConfigInit.CONFIG.despawnTime;
             ServerPlayNetworking.send(serverPlayerEntity, new DespawnTimerPacket(ConfigInit.CONFIG.despawnTime));
         }
     }
 
-    @Inject(method = "jump", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "jumpFromGround", at = @At("HEAD"), cancellable = true)
     private void jumpMixin(CallbackInfo info) {
         if (((LivingEntityAccess) this).sitLog$getSitting()) {
-            boolean canJump = this.getWorld().isClient() && ConfigInit.SYNCED_SITTING_PLAYER_CAN_JUMP != null ? ConfigInit.SYNCED_SITTING_PLAYER_CAN_JUMP : ConfigInit.CONFIG.sittingPlayerCanJump;
+            boolean canJump = this.level().isClientSide() && ConfigInit.SYNCED_SITTING_PLAYER_CAN_JUMP != null ? ConfigInit.SYNCED_SITTING_PLAYER_CAN_JUMP : ConfigInit.CONFIG.sittingPlayerCanJump;
             if (!canJump) {
                 info.cancel();
             }

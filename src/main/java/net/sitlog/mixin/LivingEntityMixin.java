@@ -1,16 +1,16 @@
 package net.sitlog.mixin;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.attribute.EntityAttribute;
-import net.minecraft.entity.attribute.EntityAttributeInstance;
-import net.minecraft.entity.attribute.EntityAttributeModifier;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.Identifier;
-import net.minecraft.world.World;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.level.Level;
 import net.sitlog.SitlogMain;
 import net.sitlog.access.LivingEntityAccess;
 import net.sitlog.util.SitLogUtil;
@@ -27,36 +27,36 @@ public abstract class LivingEntityMixin extends Entity implements LivingEntityAc
 
     @Shadow
     @Nullable
-    public abstract EntityAttributeInstance getAttributeInstance(RegistryEntry<EntityAttribute> attribute);
+    public abstract AttributeInstance getAttribute(Holder<Attribute> attribute);
 
     @Unique
-    private static final Identifier SITTING_MODIFIER_ID = SitlogMain.identifierOf("sitting");
+    private static final ResourceLocation SITTING_MODIFIER_ID = SitlogMain.identifierOf("sitting");
     @Unique
-    private static final EntityAttributeModifier SITTING_MODIFIER = new EntityAttributeModifier(SITTING_MODIFIER_ID, -0.9D, EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+    private static final AttributeModifier SITTING_MODIFIER = new AttributeModifier(SITTING_MODIFIER_ID, -0.9D, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 
     @Unique
     private boolean sitting;
 
-    public LivingEntityMixin(EntityType<?> type, World world) {
+    public LivingEntityMixin(EntityType<?> type, Level world) {
         super(type, world);
     }
 
-    @Inject(method = "damage", at = @At("RETURN"))
+    @Inject(method = "hurt", at = @At("RETURN"))
     private void damageMixin(DamageSource source, float amount, CallbackInfoReturnable<Boolean> info) {
-        if (info.getReturnValue() && !this.getWorld().isClient()) {
+        if (info.getReturnValue() && !this.level().isClientSide()) {
             SitLogUtil.onDamage((LivingEntity) (Object) this, source);
         }
     }
 
     @Override
     public void sitLog$setSitting(boolean sit) {
-        if (!this.getWorld().isClient()) {
+        if (!this.level().isClientSide()) {
             if (sit) {
-                if (!this.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).hasModifier(SITTING_MODIFIER_ID)) {
-                    this.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).addTemporaryModifier(SITTING_MODIFIER);
+                if (!this.getAttribute(Attributes.MOVEMENT_SPEED).hasModifier(SITTING_MODIFIER_ID)) {
+                    this.getAttribute(Attributes.MOVEMENT_SPEED).addTransientModifier(SITTING_MODIFIER);
                 }
             } else {
-                this.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED).removeModifier(SITTING_MODIFIER_ID);
+                this.getAttribute(Attributes.MOVEMENT_SPEED).removeModifier(SITTING_MODIFIER_ID);
             }
         }
         this.sitting = sit;

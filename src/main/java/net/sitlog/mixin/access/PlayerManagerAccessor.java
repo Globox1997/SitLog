@@ -1,29 +1,25 @@
 package net.sitlog.mixin.access;
 
-import net.minecraft.advancement.PlayerAdvancementTracker;
-import net.minecraft.server.PlayerManager;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.stat.ServerStatHandler;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.server.PlayerAdvancements;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.PlayerList;
+import net.minecraft.stats.ServerStatsCounter;
 
-@Mixin(PlayerManager.class)
+@Mixin(PlayerList.class)
 public interface PlayerManagerAccessor {
 
-    @Accessor("players")
-    List<ServerPlayerEntity> getPlayers();
+    @Accessor("playersByUUID")
+    Map<UUID, ServerPlayer> getPlayerMap();
 
-    @Accessor("playerMap")
-    Map<UUID, ServerPlayerEntity> getPlayerMap();
+    @Accessor("stats")
+    Map<UUID, ServerStatsCounter> getStatisticsMap();
 
-    @Accessor("statisticsMap")
-    Map<UUID, ServerStatHandler> getStatisticsMap();
-
-    @Accessor("advancementTrackers")
-    Map<UUID, PlayerAdvancementTracker> getAdvancementTrackers();
+    @Accessor("advancements")
+    Map<UUID, PlayerAdvancements> getAdvancementTrackers();
 
 }

@@ -1,15 +1,15 @@
 package net.sitlog.mixin.access;
 
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(ServerPlayerEntity.class)
+@Mixin(ServerPlayer.class)
 public interface ServerPlayerEntityAccessor {
 
-    @Accessor("joinInvulnerabilityTicks")
+    @Accessor("spawnInvulnerableTime")
     int getJoinInvulnerabilityTicks();
 
-    @Accessor("joinInvulnerabilityTicks")
+    @Accessor("spawnInvulnerableTime")
     void setJoinInvulnerabilityTicks(int joinInvulnerabilityTicks);
 }
