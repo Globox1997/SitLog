@@ -1,0 +1,30 @@
+package net.sitlog;
+
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+import net.minecraft.resources.Identifier;
+import net.sitlog.init.ConfigInit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.UUID;
+
+public class SitlogMain {
+
+    /**
+     * Real Player UUID, Fake Player UUID
+     */
+    public static BiMap<UUID, UUID> SITLOG_PLAYER_MAP = HashBiMap.create();
+
+    public static final String MOD_ID = "sitlog";
+
+    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+
+    public static void init() {
+        ConfigInit.init();
+    }
+
+    public static Identifier identifierOf(String name) {
+        return Identifier.fromNamespaceAndPath(MOD_ID, name);
+    }
+}
